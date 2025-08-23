@@ -1,0 +1,62 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/database/cache/app_preferences.dart';
+import '../../../core/models/project_model.dart';
+import '../../../core/models/client_model.dart';
+
+part 'projects_state.dart';
+
+class ProjectsCubit extends Cubit<ProjectsState> {
+  final AppPreferences projectsPrefs;
+  final AppPreferences clientsPrefs;
+
+  static const String _projectsKey = 'projects_list';
+  static const String _clientsKey = 'clients_list';
+
+  ProjectsCubit({required this.projectsPrefs, required this.clientsPrefs})
+    : super(ProjectsState.initial()) {
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    emit(state.copyWith(isLoading: true));
+    final projects = await projectsPrefs.getModels(
+      _projectsKey,
+      (j) => ProjectModel.fromJson(j),
+    );
+    final clients = await clientsPrefs.getModels(
+      _clientsKey,
+      (j) => ClientModel.fromJson(j),
+    );
+    emit(
+      state.copyWith(isLoading: false, projects: projects, clients: clients),
+    );
+  }
+
+  Future<void> _saveAll() async {
+    await projectsPrefs.saveModels(
+      _projectsKey,
+      state.projects,
+      (p) => p.toJson(),
+    );
+  }
+
+  void addProject(ProjectModel p) async {
+    final updatedList = List<ProjectModel>.from(state.projects)..add(p);
+    emit(state.copyWith(projects: updatedList));
+    await _saveAll();
+  }
+
+  void editProject(ProjectModel p) async {
+    final updatedList = state.projects
+        .map((e) => e.id == p.id ? p : e)
+        .toList();
+    emit(state.copyWith(projects: updatedList));
+    await _saveAll();
+  }
+
+  void deleteProject(String id) async {
+    final updatedList = state.projects.where((e) => e.id != id).toList();
+    emit(state.copyWith(projects: updatedList));
+    await _saveAll();
+  }
+}
