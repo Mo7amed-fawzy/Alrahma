@@ -227,19 +227,24 @@ class DrawingCanvasWidget extends StatelessWidget {
 
 extension PathDataExtension on PathData {
   static PathData fromMap(Map<String, dynamic> map) {
-    final points = (map['points'] as List<dynamic>? ?? [])
-        .map(
-          (p) => Offset((p['dx'] ?? 0).toDouble(), (p['dy'] ?? 0).toDouble()),
-        )
-        .toList();
+    final rawPoints = map['points'] as List<dynamic>? ?? [];
+
+    // حول كل عنصر لـ Offset بأمان
+    final points = rawPoints.map<Offset>((p) {
+      if (p is Offset) {
+        return p;
+      } else if (p is Map<String, dynamic>) {
+        return Offset((p['dx'] ?? 0).toDouble(), (p['dy'] ?? 0).toDouble());
+      } else {
+        // fallback: نقطة صفرية لو النوع مش معروف
+        return Offset.zero;
+      }
+    }).toList();
 
     final path = Path();
 
     if (points.isNotEmpty) {
-      // 🎯 أول نقطة تصبح نقطة البداية
       path.moveTo(points[0].dx, points[0].dy);
-
-      // باقي النقاط تتوصل بخطوط
       for (var i = 1; i < points.length; i++) {
         path.lineTo(points[i].dx, points[i].dy);
       }
@@ -247,7 +252,9 @@ extension PathDataExtension on PathData {
 
     return PathData(
       path: path,
-      color: map['color'] as Color? ?? Colors.black,
+      color: map['color'] is int
+          ? Color(map['color'])
+          : map['color'] as Color? ?? Colors.black,
       width: map['strokeWidth'] as double? ?? 2.0,
     );
   }
