@@ -1,3 +1,3 @@
 abstract class AppStrings {
-  static const String appName = "Tabea", env = ".env";
+  static const String appName = "alrahma", env = ".env";
 }

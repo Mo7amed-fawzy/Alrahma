@@ -1,5 +1,5 @@
 import 'package:hive_flutter/adapters.dart';
-import 'package:tabea/core/services/secure_storage_service.dart';
+import 'package:alrahma/core/services/secure_storage_service.dart';
 
 class HiveStorageService implements IStorageService {
   final Box box;

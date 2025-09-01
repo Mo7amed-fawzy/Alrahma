@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tabea/core/services/supabase_services.dart';
+import 'package:alrahma/core/services/supabase_services.dart';
 
 class DataList extends StatefulWidget {
   const DataList({super.key});

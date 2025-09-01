@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "tabea" "\0"
+            VALUE "FileDescription", "alrahma" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "tabea" "\0"
+            VALUE "InternalName", "alrahma" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "tabea.exe" "\0"
-            VALUE "ProductName", "tabea" "\0"
+            VALUE "OriginalFilename", "alrahma.exe" "\0"
+            VALUE "ProductName", "alrahma" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

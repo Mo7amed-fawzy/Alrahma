@@ -1,70 +1,97 @@
 import 'package:flutter/material.dart';
-import 'package:tabea/core/models/drawing_model.dart';
-import 'package:tabea/core/models/project_model.dart';
-import 'package:tabea/features/paint/model/models.dart'; // ShapeData
+import 'package:alrahma/core/models/drawing_model.dart';
+import 'package:alrahma/core/models/project_model.dart';
 
 class DrawingCanvasState {
   final List<ProjectModel> projects;
   final String selectedProjectId;
-  final List<Map<String, dynamic>> paths;
-  final List<Offset> currentPath;
+
+  // الرسم الحالي
+  final List<PathData> currentPaths; // كل PathData = خط/مسار
+  final List<ShapeData> shapes; // كل الأشكال الهندسية
+  final List<TextData> textData; // كل النصوص
   final Color selectedColor;
   final double strokeWidth;
   final String tool; // freehand, line, rect, circle, text
-  final List<Map<String, dynamic>> history;
-  final List<Map<String, dynamic>> redoHistory;
-
   final bool straightLineEnabled;
-  final List<Map<String, dynamic>> texts;
 
-  // ✅ أضف هذا
-  final List<ShapeData> shapes;
+  // التاريخ للتراجع / الإعادة
+  final List<DrawingAction> history;
+  final List<DrawingAction> redoHistory;
+
+  // كل الرسومات الكاملة المرتبطة بالمشاريع
   final List<DrawingModel> drawings;
+  final int? selectedTextIndex;
+
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final bool isHandTool; // ✅ أضفنا الخاصية الجديدة
+
   DrawingCanvasState({
     required this.projects,
     required this.selectedProjectId,
-    this.paths = const [],
-    this.currentPath = const [],
-    this.history = const [],
-    this.redoHistory = const [],
+    this.currentPaths = const [],
+    this.shapes = const [],
+    this.textData = const [],
     this.selectedColor = Colors.black,
     this.strokeWidth = 2.0,
     this.tool = "freehand",
     this.straightLineEnabled = false,
-    this.texts = const [],
-    this.shapes = const [], // ✅ الافتراضي
-    this.drawings = const [], // ✅ الافتراضي
-  });
+    this.history = const [],
+    this.redoHistory = const [],
+    this.drawings = const [],
+    this.selectedTextIndex,
+    this.isHandTool = false, // افتراضي false
+
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   DrawingCanvasState copyWith({
     List<ProjectModel>? projects,
     String? selectedProjectId,
-    List<Map<String, dynamic>>? paths,
-    List<Map<String, dynamic>>? history,
-    List<Map<String, dynamic>>? redoHistory,
-    List<Offset>? currentPath,
+    List<PathData>? currentPaths,
+    List<ShapeData>? shapes,
+    List<TextData>? textData,
     Color? selectedColor,
     double? strokeWidth,
     String? tool,
     bool? straightLineEnabled,
-    List<Map<String, dynamic>>? texts,
-    List<ShapeData>? shapes, // ✅ أضف هذا
-    List<DrawingModel>? drawings, // ✅ أضف هذا
+    List<DrawingAction>? history,
+    List<DrawingAction>? redoHistory,
+    List<DrawingModel>? drawings,
+    int? selectedTextIndex, // ✅
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isHandTool, // ✅ دعم copyWith
   }) {
     return DrawingCanvasState(
       projects: projects ?? this.projects,
       selectedProjectId: selectedProjectId ?? this.selectedProjectId,
-      paths: paths ?? this.paths,
-      history: history ?? this.history,
-      redoHistory: redoHistory ?? this.redoHistory,
-      currentPath: currentPath ?? this.currentPath,
+      currentPaths: currentPaths ?? this.currentPaths,
+      shapes: shapes ?? this.shapes,
+      textData: textData ?? this.textData,
       selectedColor: selectedColor ?? this.selectedColor,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       tool: tool ?? this.tool,
       straightLineEnabled: straightLineEnabled ?? this.straightLineEnabled,
-      texts: texts ?? this.texts,
-      shapes: shapes ?? this.shapes, // ✅ هنا
-      drawings: drawings ?? this.drawings, // ✅ هنا
+      history: history ?? this.history,
+      redoHistory: redoHistory ?? this.redoHistory,
+      drawings: drawings ?? this.drawings,
+      selectedTextIndex: selectedTextIndex ?? this.selectedTextIndex, // ✅
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? DateTime.now(), // ✅ يتحدث عند أي تعديل
+      isHandTool: isHandTool ?? this.isHandTool,
     );
   }
+}
+
+/// نموذج يمثل أي حركة رسم (خط، شكل، نص) للتراجع / الإعادة
+class DrawingAction {
+  final String type; // "path", "shape", "text", "update_text", ...
+  final dynamic data; // PathData / ShapeData / TextData
+  final dynamic previousData; // optional
+
+  DrawingAction({required this.type, required this.data, this.previousData});
 }

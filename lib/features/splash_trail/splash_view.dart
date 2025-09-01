@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math'; // ✅ علشان نستخدم min()
+import 'package:alrahma/core/utils/assets.dart';
+import 'package:alrahma/core/services/trial_service.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tabea/core/utils/app_colors.dart';
-import 'package:tabea/core/utils/custom_text_styles.dart';
-import 'package:tabea/features/home/pages/home_page.dart';
-import 'package:tabea/features/splash_trail/trial_expired_page.dart';
+import 'package:alrahma/core/utils/app_colors.dart';
+import 'package:alrahma/features/home/pages/home_page.dart';
+
+// ✅ استدعاء السيرفس
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -19,6 +21,8 @@ class _SplashViewState extends State<SplashView>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
+
+  final TrialService _trialService = TrialService();
 
   @override
   void initState() {
@@ -43,29 +47,17 @@ class _SplashViewState extends State<SplashView>
 
     _controller.forward();
 
-    // Timer بعد 3 ثواني للتحقق من الـ Trial
+    // ✅ بعد 3 ثواني نتحقق من الترايل
     Timer(const Duration(seconds: 3), () async {
-      final prefs = await SharedPreferences.getInstance();
+      try {
+        await _trialService.init();
+        await _trialService.startTrial(); // هيبدأ الترايل لو مش موجود فقط
 
-      // تخزين تاريخ أول تشغيل إذا مش موجود
-      if (!prefs.containsKey('firstLaunchDate')) {
-        prefs.setString(
-          'firstLaunchDate',
-          DateTime.now().toUtc().toIso8601String(),
-        );
-      }
-
-      final firstLaunch = DateTime.parse(prefs.getString('firstLaunchDate')!);
-      final now = DateTime.now().toUtc();
-      final difference = now.difference(firstLaunch).inDays;
-
-      if (difference >= 7) {
-        // لو Trial انتهت
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const TrialExpiredPage()),
-        );
-      } else {
-        // لو Trial لسه شغالة
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(_createRoute());
+      } catch (e) {
+        debugPrint("❌ TrialService error in Splash: $e");
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(_createRoute());
       }
     });
@@ -94,10 +86,14 @@ class _SplashViewState extends State<SplashView>
 
   @override
   Widget build(BuildContext context) {
+    // ✅ نخلي اللوجو ريسبونسف بناءً على أصغر بُعد للشاشة
+    final size = MediaQuery.of(context).size;
+    final double logoHeight = min(size.width, size.height) * 0.35;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppColors.primaryBlue,
+        backgroundColor: AppColors.lightGray,
         body: Center(
           child: SlideTransition(
             position: _slideAnimation,
@@ -106,20 +102,12 @@ class _SplashViewState extends State<SplashView>
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize: MainAxisSize.min, // ✅ يمنع التمدد الزيادة
                   children: [
-                    Icon(
-                      Icons.dashboard_customize,
-                      size: 50,
-                      color: AppColors.textOnDark,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'تابع',
-                      style: CustomTextStyles.cairoBold20.copyWith(
-                        fontSize: 36,
-                        color: AppColors.textOnDark,
-                      ),
+                    Image.asset(
+                      AppStyle.images.alRaham,
+                      height: logoHeight, // ✅ ريسبونسف على كل الشاشات
+                      fit: BoxFit.contain, // ✅ يضمن إن الصورة متتجاوزش
                     ),
                   ],
                 ),

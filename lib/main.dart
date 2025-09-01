@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 // import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hive_flutter/adapters.dart';
 // import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:tabea/app/app.dart';
-// import 'package:tabea/core/services/app_dependencies.dart';
-// import 'package:tabea/core/utils/api_keys.dart';
-// import 'package:tabea/core/utils/app_strings.dart';
+import 'package:alrahma/app/app.dart';
+// import 'package:alrahma/core/services/app_dependencies.dart';
+// import 'package:alrahma/core/utils/api_keys.dart';
+// import 'package:alrahma/core/utils/app_strings.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,5 +19,5 @@ void main() async {
   //   url: EnvConfig.supabaseUrl,
   //   anonKey: EnvConfig.supabaseAnonKey,
   // );
-  runApp(const Tabea());
+  runApp(const Alrahma());
 }

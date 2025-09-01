@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import '../../core/models/payment_model.dart';
 import '../../core/models/project_model.dart';
 import '../../core/utils/app_colors.dart';
@@ -12,6 +13,7 @@ class PaymentsPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<PaymentsCubit>();
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -34,13 +36,15 @@ class PaymentsPageContent extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.payment_outlined,
-                      size: 80,
+                      size: screenWidth * 0.2,
                       color: Colors.grey[400],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: screenWidth * 0.04),
                     Text(
                       'لا توجد دفعات بعد',
-                      style: CustomTextStyles.cairoRegular18,
+                      style: CustomTextStyles.cairoRegular18.copyWith(
+                        fontSize: screenWidth * 0.045,
+                      ),
                     ),
                   ],
                 ),
@@ -48,7 +52,10 @@ class PaymentsPageContent extends StatelessWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04,
+                vertical: screenWidth * 0.03,
+              ),
               itemCount: state.payments.length,
               itemBuilder: (context, index) {
                 final payment = state.payments[index];
@@ -67,56 +74,68 @@ class PaymentsPageContent extends StatelessWidget {
                   onTap: () => _openPaymentDialog(context, payment, cubit),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 4,
+                    margin: EdgeInsets.symmetric(
+                      vertical: screenWidth * 0.02,
+                      horizontal: screenWidth * 0.01,
                     ),
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(screenWidth * 0.04),
                     decoration: BoxDecoration(
                       color: AppColors.successGreen.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(screenWidth * 0.04),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.successGreen.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+                          blurRadius: screenWidth * 0.02,
+                          offset: Offset(0, screenWidth * 0.01),
                         ),
                       ],
                     ),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        CircleAvatar(
-                          backgroundColor: AppColors.successGreen,
-                          child: Text(
-                            project.type.isNotEmpty ? project.type[0] : '?',
-                            style: CustomTextStyles.cairoBold20.copyWith(
-                              color: Colors.white,
+                        SizedBox(
+                          width: screenWidth * 0.15,
+                          height: screenWidth * 0.15,
+                          child: CircleAvatar(
+                            backgroundColor: AppColors.successGreen,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                project.type.isNotEmpty ? project.type[0] : '?',
+                                style: CustomTextStyles.cairoBold20.copyWith(
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: screenWidth * 0.03),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 '${project.type} • ${project.createdAt.toString().split(' ').first}',
-                                style: CustomTextStyles.cairoBold20,
+                                style: CustomTextStyles.cairoBold20.copyWith(
+                                  fontSize: screenWidth * 0.045,
+                                ),
                               ),
-                              const SizedBox(height: 4),
+                              SizedBox(height: screenWidth * 0.01),
                               Text(
-                                'Total: ${payment.amountTotal.toStringAsFixed(2)} • Paid: ${payment.amountPaid.toStringAsFixed(2)} • Remaining: ${payment.remainingAmount.toStringAsFixed(2)}',
+                                'الإجمالي: ${payment.amountTotal.toStringAsFixed(2)} • المدفوع: ${payment.amountPaid.toStringAsFixed(2)} • المتبقي: ${payment.remainingAmount.toStringAsFixed(2)}',
                                 style: CustomTextStyles.cairoRegular16.copyWith(
                                   color: Colors.grey[700],
+                                  fontSize: screenWidth * 0.038,
                                 ),
                               ),
                             ],
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
                             color: Colors.red,
+                            size: screenWidth * 0.07,
                           ),
                           onPressed: () => cubit.deletePayment(payment.id),
                         ),
@@ -147,7 +166,7 @@ class PaymentsPageContent extends StatelessWidget {
             );
           },
           backgroundColor: AppColors.successGreen,
-          child: const Icon(Icons.add),
+          child: Icon(Icons.add, size: screenWidth * 0.08),
         ),
       ),
     );
@@ -159,6 +178,7 @@ class PaymentsPageContent extends StatelessWidget {
     PaymentsCubit cubit, {
     bool isNew = false,
   }) {
+    final screenWidth = MediaQuery.of(context).size.width;
     String selectedProjectId = initial.projectId;
     final totalCtrl = TextEditingController(
       text: initial.amountTotal.toString(),
@@ -169,12 +189,17 @@ class PaymentsPageContent extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(screenWidth * 0.05),
+        ),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: EdgeInsets.all(screenWidth * 0.05),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
           decoration: BoxDecoration(
             color: AppColors.successGreen.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(screenWidth * 0.05),
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -184,9 +209,10 @@ class PaymentsPageContent extends StatelessWidget {
                   isNew ? 'إضافة دفعة' : 'تعديل دفعة',
                   style: CustomTextStyles.cairoBold20.copyWith(
                     color: AppColors.successGreen,
+                    fontSize: screenWidth * 0.05,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: screenWidth * 0.04),
                 DropdownButtonFormField<String>(
                   value:
                       selectedProjectId.isEmpty &&
@@ -199,6 +225,7 @@ class PaymentsPageContent extends StatelessWidget {
                           value: p.id,
                           child: Text(
                             '${p.type} (${p.id.substring(p.id.length - 4)})',
+                            style: TextStyle(fontSize: screenWidth * 0.04),
                           ),
                         ),
                       )
@@ -206,42 +233,54 @@ class PaymentsPageContent extends StatelessWidget {
                   onChanged: (v) => selectedProjectId = v ?? '',
                   decoration: InputDecoration(
                     labelText: 'المشروع',
-                    labelStyle: TextStyle(color: AppColors.successGreen),
+                    labelStyle: TextStyle(
+                      color: AppColors.successGreen,
+                      fontSize: screenWidth * 0.045,
+                    ),
                     focusedBorder: UnderlineInputBorder(
                       borderSide: BorderSide(color: AppColors.successGreen),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: screenWidth * 0.03),
                 TextField(
                   controller: totalCtrl,
                   decoration: InputDecoration(
                     labelText: 'المبلغ الإجمالي',
-                    labelStyle: TextStyle(color: AppColors.successGreen),
+                    labelStyle: TextStyle(
+                      color: AppColors.successGreen,
+                      fontSize: screenWidth * 0.045,
+                    ),
                     focusedBorder: UnderlineInputBorder(
                       borderSide: BorderSide(color: AppColors.successGreen),
                     ),
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: screenWidth * 0.03),
                 TextField(
                   controller: paidCtrl,
                   decoration: InputDecoration(
                     labelText: 'المدفوع (دفعة)',
-                    labelStyle: TextStyle(color: AppColors.successGreen),
+                    labelStyle: TextStyle(
+                      color: AppColors.successGreen,
+                      fontSize: screenWidth * 0.045,
+                    ),
                     focusedBorder: UnderlineInputBorder(
                       borderSide: BorderSide(color: AppColors.successGreen),
                     ),
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: screenWidth * 0.04),
                 Row(
                   children: [
                     Text(
                       'التاريخ: ${date.toString().split(' ').first}',
-                      style: TextStyle(color: AppColors.successGreen),
+                      style: TextStyle(
+                        color: AppColors.successGreen,
+                        fontSize: screenWidth * 0.043,
+                      ),
                     ),
                     const Spacer(),
                     TextButton(
@@ -266,25 +305,36 @@ class PaymentsPageContent extends StatelessWidget {
                       },
                       child: Text(
                         'اختر التاريخ',
-                        style: TextStyle(color: AppColors.successGreen),
+                        style: TextStyle(
+                          color: AppColors.successGreen,
+                          fontSize: screenWidth * 0.043,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: screenWidth * 0.05),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text('إلغاء', style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        'إلغاء',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: screenWidth * 0.043,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: screenWidth * 0.03),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.successGreen,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(
+                            screenWidth * 0.03,
+                          ),
                         ),
                       ),
                       onPressed: () {
@@ -300,11 +350,20 @@ class PaymentsPageContent extends StatelessWidget {
                         } else {
                           cubit.editPayment(updated);
                         }
+                        SnackbarHelper.show(
+                          context,
+                          message: "تم حفظ الدفعة بنجاح",
+                          backgroundColor: AppColors.successGreen,
+                        );
+
                         Navigator.pop(context);
                       },
-                      child: const Text(
+                      child: Text(
                         'حفظ',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: screenWidth * 0.045,
+                        ),
                       ),
                     ),
                   ],
