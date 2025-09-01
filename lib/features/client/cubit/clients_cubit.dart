@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:tabea/core/database/cache/app_preferences.dart';
-import 'package:tabea/core/models/client_model.dart';
-import 'package:tabea/core/utils/cache_keys.dart';
+import 'package:alrahma/core/database/cache/app_preferences.dart';
+import 'package:alrahma/core/models/client_model.dart';
+import 'package:alrahma/core/utils/cache_keys.dart';
 
 part 'clients_state.dart';
 

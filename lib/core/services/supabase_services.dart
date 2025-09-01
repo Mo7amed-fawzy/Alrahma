@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:tabea/core/utils/print_statement.dart';
+import 'package:alrahma/core/utils/print_statement.dart';
 
 final supabase = Supabase.instance.client;
 

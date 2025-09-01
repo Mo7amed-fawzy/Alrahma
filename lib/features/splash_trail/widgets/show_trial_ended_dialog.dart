@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:tabea/core/utils/app_colors.dart';
-import 'package:tabea/core/utils/custom_text_styles.dart';
+import 'package:alrahma/core/utils/app_colors.dart';
+import 'package:alrahma/core/utils/custom_text_styles.dart';
 
 import 'package:flutter/services.dart'; // لو عاوز تغلق التطبيق بعد الضغط
 

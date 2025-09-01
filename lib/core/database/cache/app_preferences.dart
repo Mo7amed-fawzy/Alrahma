@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:tabea/core/services/secure_storage_service.dart';
+import 'package:alrahma/core/services/secure_storage_service.dart';
 
 class AppPreferences {
   static AppPreferences? _instance;

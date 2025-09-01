@@ -1,8 +1,8 @@
-import 'package:tabea/core/funcs/init_and_load_databases.dart';
-import 'package:tabea/core/models/client_model.dart';
-import 'package:tabea/core/models/payment_model.dart';
-import 'package:tabea/core/models/project_model.dart';
-import 'package:tabea/core/utils/cache_keys.dart';
+import 'package:alrahma/core/funcs/init_and_load_databases.dart';
+import 'package:alrahma/core/models/client_model.dart';
+import 'package:alrahma/core/models/payment_model.dart';
+import 'package:alrahma/core/models/project_model.dart';
+import 'package:alrahma/core/utils/cache_keys.dart';
 
 Future<Map<String, int>> loadHomeStats() async {
   final clients = await DatabasesNames.clientsPrefs.getModels(
@@ -11,7 +11,7 @@ Future<Map<String, int>> loadHomeStats() async {
   );
 
   final projects = await DatabasesNames.projectsPrefs.getModels(
-    CacheKeys.projectsPrefsKey,
+    CacheKeys.projectsKey,
     (json) => ProjectModel.fromJson(json),
   );
 

@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:tabea/core/funcs/init_and_load_databases.dart';
-import 'package:tabea/core/utils/app_colors.dart';
-import 'package:tabea/core/utils/custom_text_styles.dart';
-import 'package:tabea/features/client/cubit/clients_cubit.dart';
-import 'package:tabea/features/home/cubit/home_cubit.dart';
-import 'package:tabea/features/home/widgets/build_premium_loader.dart';
-import 'package:tabea/features/home/widgets/build_stat_card.dart';
-import 'package:tabea/features/home/widgets/funcs/load_home_stats.dart';
-import 'package:tabea/features/home/widgets/pressable_card.dart';
-import 'package:tabea/features/splash_trail/welcome.dart';
-import 'package:tabea/features/paint/cubit/drawings_cubit.dart';
-import 'package:tabea/features/paint/drawings_page.dart';
-import 'package:tabea/features/client/clients_page.dart';
-import 'package:tabea/features/payment/cubit/payments_cubit.dart';
-import 'package:tabea/features/project/cubit/projects_cubit.dart';
-import 'package:tabea/features/payment/payments_page.dart';
-import 'package:tabea/features/project/projects_page.dart';
+import 'package:alrahma/core/funcs/init_and_load_databases.dart';
+import 'package:alrahma/core/utils/app_colors.dart';
+import 'package:alrahma/core/utils/custom_text_styles.dart';
+import 'package:alrahma/features/client/cubit/clients_cubit.dart';
+import 'package:alrahma/features/home/cubit/home_cubit.dart';
+import 'package:alrahma/features/home/widgets/build_premium_loader.dart';
+import 'package:alrahma/features/home/widgets/build_stat_card.dart';
+import 'package:alrahma/features/home/widgets/funcs/load_home_stats.dart';
+import 'package:alrahma/features/home/widgets/pressable_card.dart';
+import 'package:alrahma/features/splash_trail/welcome.dart';
+import 'package:alrahma/features/paint/cubit/drawings_nav_cubit.dart';
+import 'package:alrahma/features/paint/screens/drawings_page.dart';
+import 'package:alrahma/features/client/clients_page.dart';
+import 'package:alrahma/features/payment/cubit/payments_cubit.dart';
+import 'package:alrahma/features/project/cubit/projects_cubit.dart';
+import 'package:alrahma/features/payment/payments_page.dart';
+import 'package:alrahma/features/project/projects_page.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -146,6 +146,7 @@ class HomeView extends StatelessWidget {
                                   create: (_) => DrawingsCubit(
                                     drawingsPrefs: DatabasesNames.drawingsPrefs,
                                     projectsPrefs: DatabasesNames.projectsPrefs,
+                                    clientPrefs: DatabasesNames.clientsPrefs,
                                   )..load(),
                                   child: const DrawingsPage(),
                                 ),

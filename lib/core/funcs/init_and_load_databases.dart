@@ -1,6 +1,6 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:tabea/core/database/cache/app_preferences.dart';
-import 'package:tabea/core/services/hive_storage_service.dart';
+import 'package:alrahma/core/database/cache/app_preferences.dart';
+import 'package:alrahma/core/services/hive_storage_service.dart';
 
 abstract class DatabasesNames {
   static late AppPreferences clientsPrefs;

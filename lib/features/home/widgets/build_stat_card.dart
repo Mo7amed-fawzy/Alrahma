@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tabea/core/utils/custom_text_styles.dart';
+import 'package:alrahma/core/utils/custom_text_styles.dart';
 
 Widget buildStatCard(String title, String value, Color color) {
   return Expanded(

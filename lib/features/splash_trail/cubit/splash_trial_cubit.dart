@@ -1,6 +1,6 @@
 // splash_trial_cubit.dart
 import 'package:bloc/bloc.dart';
-import 'package:tabea/core/funcs/init_and_load_databases.dart';
+import 'package:alrahma/core/funcs/init_and_load_databases.dart';
 
 part 'splash_trial_state.dart';
 

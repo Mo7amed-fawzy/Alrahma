@@ -1,8 +1,11 @@
+import 'package:alrahma/core/services/trial_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:tabea/features/client/card.dart';
-import 'package:tabea/features/client/cubit/clients_cubit.dart';
-import 'package:tabea/features/home/widgets/build_premium_loader.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:alrahma/core/utils/cache_keys.dart';
+import 'package:alrahma/features/client/card.dart';
+import 'package:alrahma/features/client/cubit/clients_cubit.dart';
+import 'package:alrahma/features/home/widgets/build_premium_loader.dart';
 import '../../core/database/cache/app_preferences.dart';
 import '../../core/models/client_model.dart';
 import '../../core/utils/app_colors.dart';
@@ -29,11 +32,21 @@ class ClientsPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trialChecker = TrialChecker();
+
+    // ✅ Check trial on page build
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await trialChecker.checkTrial(context);
+    });
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('العملاء', style: CustomTextStyles.cairoBold20),
+          title: Text(
+            'العملاء',
+            style: CustomTextStyles.cairoBold20.copyWith(fontSize: 22.sp),
+          ),
           backgroundColor: AppColors.primaryBlue,
           centerTitle: true,
         ),
@@ -50,13 +63,15 @@ class ClientsPageContent extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.people_outline,
-                      size: 80,
+                      size: 80.w,
                       color: Colors.grey[400],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16.h),
                     Text(
                       'لا يوجد عملاء بعد',
-                      style: CustomTextStyles.cairoRegular18,
+                      style: CustomTextStyles.cairoRegular18.copyWith(
+                        fontSize: 18.sp,
+                      ),
                     ),
                   ],
                 ),
@@ -64,28 +79,44 @@ class ClientsPageContent extends StatelessWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               itemCount: state.clients.length,
               itemBuilder: (context, index) {
                 final client = state.clients[index];
-                return buildClientCard(
-                  client: client,
-                  onEdit: () => showClientDialog(
-                    context: context,
-                    initial: client,
-                    isNew: false,
-                    onSave: (updated) =>
-                        context.read<ClientsCubit>().editClient(updated),
+                return GestureDetector(
+                  onTap: () async {
+                    // ✅ Optional: check trial before allowing interaction
+                    final allowed = await trialChecker.checkTrial(context);
+                    if (!allowed) return;
+
+                    await context.read<ClientsCubit>().clientsPrefs.setData(
+                      CacheKeys.clientId,
+                      client.id,
+                    );
+                  },
+                  child: buildClientCard(
+                    client: client,
+                    onEdit: () => showClientDialog(
+                      context: context,
+                      initial: client,
+                      isNew: false,
+                      onSave: (updated) =>
+                          context.read<ClientsCubit>().editClient(updated),
+                    ),
+                    onDelete: () =>
+                        context.read<ClientsCubit>().deleteClient(client.id),
                   ),
-                  onDelete: () =>
-                      context.read<ClientsCubit>().deleteClient(client.id),
                 );
               },
             );
           },
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
+          onPressed: () async {
+            // ✅ Check trial before allowing to add new client
+            final allowed = await trialChecker.checkTrial(context);
+            if (!allowed) return;
+
             final id = DateTime.now().millisecondsSinceEpoch.toString();
             showClientDialog(
               context: context,
@@ -96,7 +127,7 @@ class ClientsPageContent extends StatelessWidget {
             );
           },
           backgroundColor: AppColors.primaryBlue,
-          child: const Icon(Icons.add),
+          child: Icon(Icons.add, size: 28.sp),
         ),
       ),
     );

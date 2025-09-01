@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:tabea/features/client/card.dart';
-import 'package:tabea/features/project/cubit/projects_cubit.dart';
+import 'package:alrahma/features/client/card.dart';
+import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
+import 'package:alrahma/features/project/cubit/projects_cubit.dart';
 import '../../../../core/database/cache/app_preferences.dart';
 import '../../../../core/models/project_model.dart';
 import '../../../../core/models/client_model.dart';
@@ -38,13 +39,19 @@ class ProjectsPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<ProjectsCubit>();
+    final screenWidth = MediaQuery.of(context).size.width;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('المشاريع', style: CustomTextStyles.cairoBold20),
-          backgroundColor: AppColors.primaryBlue,
+          title: Text(
+            'المشاريع',
+            style: CustomTextStyles.cairoBold20.copyWith(
+              fontSize: screenWidth * 0.05,
+            ),
+          ),
+          backgroundColor: AppColors.secondaryGolden,
           centerTitle: true,
         ),
         body: BlocBuilder<ProjectsCubit, ProjectsState>(
@@ -60,13 +67,15 @@ class ProjectsPageContent extends StatelessWidget {
                   children: [
                     Icon(
                       Icons.business_center_outlined,
-                      size: 80,
+                      size: screenWidth * 0.2,
                       color: Colors.grey[400],
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: screenWidth * 0.05),
                     Text(
                       'لا توجد مشاريع بعد',
-                      style: CustomTextStyles.cairoRegular18,
+                      style: CustomTextStyles.cairoRegular18.copyWith(
+                        fontSize: screenWidth * 0.045,
+                      ),
                     ),
                   ],
                 ),
@@ -74,7 +83,10 @@ class ProjectsPageContent extends StatelessWidget {
             }
 
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: screenWidth * 0.04,
+                vertical: screenWidth * 0.03,
+              ),
               itemCount: state.projects.length,
               itemBuilder: (context, index) {
                 final project = state.projects[index];
@@ -89,6 +101,7 @@ class ProjectsPageContent extends StatelessWidget {
                     onSave: (updated) => cubit.editProject(updated),
                   ),
                   onDelete: () => cubit.deleteProject(project.id),
+                  screenWidth: screenWidth,
                 );
               },
             );
@@ -113,8 +126,8 @@ class ProjectsPageContent extends StatelessWidget {
               onSave: (updated) => cubit.addProject(updated),
             );
           },
-          backgroundColor: AppColors.primaryBlue,
-          child: const Icon(Icons.add),
+          backgroundColor: AppColors.secondaryGolden,
+          child: Icon(Icons.add, size: screenWidth * 0.08),
         ),
       ),
     );
@@ -129,6 +142,7 @@ Future<void> showProjectDialog({
   required List<ClientModel> clients,
   required Function(ProjectModel updated) onSave,
 }) {
+  final screenWidth = MediaQuery.of(context).size.width;
   final typeCtrl = TextEditingController(text: initial.type);
   final descCtrl = TextEditingController(text: initial.description);
   String selectedClientId = initial.clientId;
@@ -136,11 +150,13 @@ Future<void> showProjectDialog({
   return showDialog(
     context: context,
     builder: (_) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(screenWidth * 0.05),
+      ),
       elevation: 10,
       backgroundColor: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: EdgeInsets.all(screenWidth * 0.05),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -148,10 +164,11 @@ Future<void> showProjectDialog({
               Text(
                 isNew ? 'إضافة مشروع' : 'تعديل المشروع',
                 style: CustomTextStyles.cairoBold20.copyWith(
-                  color: AppColors.primaryBlue,
+                  color: AppColors.secondaryGolden,
+                  fontSize: screenWidth * 0.05,
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: screenWidth * 0.05),
 
               // Dropdown لاختيار العميل
               DropdownButtonFormField<String>(
@@ -164,21 +181,37 @@ Future<void> showProjectDialog({
                         value: c.id,
                         child: Text(
                           c.name,
-                          style: CustomTextStyles.cairoRegular16,
+                          style: CustomTextStyles.cairoRegular16.copyWith(
+                            fontSize: screenWidth * 0.04,
+                          ),
                         ),
                       ),
                     )
                     .toList(),
                 onChanged: (v) => selectedClientId = v ?? '',
-                decoration: const InputDecoration(labelText: 'العميل'),
+                decoration: InputDecoration(
+                  labelText: 'العميل',
+                  labelStyle: TextStyle(
+                    fontSize: screenWidth * 0.045,
+                    color: Colors.black87,
+                  ),
+                ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: screenWidth * 0.03),
 
               // استخدام buildTextField من الـ helpers
-              buildTextField(controller: typeCtrl, label: 'النوع'),
-              const SizedBox(height: 12),
-              buildTextField(controller: descCtrl, label: 'الوصف'),
-              const SizedBox(height: 25),
+              buildTextField(
+                controller: typeCtrl,
+                label: 'النوع',
+                // fontSize: screenWidth * 0.045,
+              ),
+              SizedBox(height: screenWidth * 0.03),
+              buildTextField(
+                controller: descCtrl,
+                label: 'الوصف',
+                // fontSize: screenWidth * 0.045,
+              ),
+              SizedBox(height: screenWidth * 0.05),
 
               // أزرار الحفظ والإلغاء بنفس الـ style
               Row(
@@ -188,11 +221,11 @@ Future<void> showProjectDialog({
                     onPressed: () => Navigator.pop(context),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.grey[700],
-                      textStyle: CustomTextStyles.cairoRegular16,
+                      textStyle: TextStyle(fontSize: screenWidth * 0.043),
                     ),
                     child: const Text('إلغاء'),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: screenWidth * 0.03),
                   ElevatedButton(
                     onPressed: () {
                       final updated = ProjectModel(
@@ -203,21 +236,30 @@ Future<void> showProjectDialog({
                         createdAt: initial.createdAt,
                       );
                       onSave(updated);
+                      SnackbarHelper.show(
+                        context,
+                        message: " تم حفظ المشروع بنجاح",
+                        backgroundColor: AppColors.secondaryGolden,
+                      );
+
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
+                      backgroundColor: AppColors.secondaryGolden,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(screenWidth * 0.03),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 12,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth * 0.06,
+                        vertical: screenWidth * 0.035,
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'حفظ',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: screenWidth * 0.045,
+                      ),
                     ),
                   ),
                 ],
@@ -236,6 +278,7 @@ Widget buildProjectCard({
   required List<ClientModel> clients,
   required VoidCallback onEdit,
   required VoidCallback onDelete,
+  required double screenWidth,
 }) {
   final clientName = clients
       .firstWhere(
@@ -249,49 +292,68 @@ Widget buildProjectCard({
     onTap: onEdit,
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.symmetric(
+        vertical: screenWidth * 0.02,
+        horizontal: screenWidth * 0.01,
+      ),
+      padding: EdgeInsets.all(screenWidth * 0.04),
       decoration: BoxDecoration(
         color: AppColors.secondaryGolden.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(screenWidth * 0.04),
         boxShadow: [
           BoxShadow(
             color: AppColors.secondaryGolden.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            blurRadius: screenWidth * 0.02,
+            offset: Offset(0, screenWidth * 0.01),
           ),
         ],
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: AppColors.secondaryGolden,
-            child: Text(
-              project.type.isNotEmpty ? project.type[0] : '?',
-              style: CustomTextStyles.cairoBold20.copyWith(color: Colors.white),
+          SizedBox(
+            width: screenWidth * 0.12,
+            height: screenWidth * 0.12,
+            child: CircleAvatar(
+              backgroundColor: AppColors.secondaryGolden,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  project.type.isNotEmpty ? project.type[0] : '?',
+                  style: CustomTextStyles.cairoBold20.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: screenWidth * 0.03),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '${project.type} • $clientName',
-                  style: CustomTextStyles.cairoBold20,
+                  style: CustomTextStyles.cairoBold20.copyWith(
+                    fontSize: screenWidth * 0.045,
+                  ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: screenWidth * 0.01),
                 Text(
                   project.description,
                   style: CustomTextStyles.cairoRegular16.copyWith(
                     color: Colors.grey[700],
+                    fontSize: screenWidth * 0.04,
                   ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            icon: Icon(
+              Icons.delete_outline,
+              color: Colors.red,
+              size: screenWidth * 0.07,
+            ),
             onPressed: onDelete,
           ),
         ],
