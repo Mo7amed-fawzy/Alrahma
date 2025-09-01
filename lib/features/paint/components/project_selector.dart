@@ -1,4 +1,3 @@
-// ProjectSelector.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:alrahma/core/models/project_model.dart';
@@ -10,12 +9,14 @@ class ProjectSelector extends StatelessWidget {
   final DrawingCanvasCubit cubit;
   final List<ProjectModel> projects;
   final String selectedProjectId;
+  final bool isEditing; // جديد
 
   const ProjectSelector({
     super.key,
     required this.cubit,
     required this.projects,
     required this.selectedProjectId,
+    this.isEditing = false,
   });
 
   @override
@@ -91,23 +92,20 @@ class ProjectSelector extends StatelessWidget {
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: DropdownButtonFormField<String>(
-          value: selectedProjectId.isEmpty
-              ? null
-              : null, // اجبارياً null أول مرة
-          items: projects
-              .map(
-                (p) => DropdownMenuItem(
-                  value: p.id,
-                  child: Text(
-                    p.type,
-                    style: CustomTextStyles.cairoRegular16.copyWith(
-                      fontSize: 16.sp,
-                    ),
-                  ),
+          value: selectedProjectId.isEmpty ? null : selectedProjectId,
+          items: projects.map((p) {
+            return DropdownMenuItem(
+              value: p.id,
+              child: Text(
+                "${p.type} • ${p.clientName ?? 'عميل غير معروف'}",
+                style: CustomTextStyles.cairoRegular16.copyWith(
+                  fontSize: 16.sp,
                 ),
-              )
-              .toList(),
-          onChanged: (v) => cubit.selectProject(v ?? ""),
+              ),
+            );
+          }).toList(),
+          // هنا تم تعديل onChanged بحيث يقفل الـ Dropdown لو isEditing = true
+          onChanged: isEditing ? null : (v) => cubit.selectProject(v ?? ""),
           decoration: InputDecoration(
             labelText: "اختر المشروع",
             labelStyle: CustomTextStyles.cairoSemiBold16.copyWith(

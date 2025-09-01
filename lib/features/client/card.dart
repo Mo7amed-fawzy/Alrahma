@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:alrahma/core/utils/cache_keys.dart';
@@ -12,9 +13,11 @@ import '../../core/utils/custom_text_styles.dart';
 Widget buildTextField({
   required TextEditingController controller,
   required String label,
+  TextInputType? keyboardType, // إضافة اختيار نوع الكيبورد
 }) {
   return TextField(
     controller: controller,
+    keyboardType: keyboardType, // يستخدم إذا تم تمريره
     textAlign: TextAlign.right,
     decoration: InputDecoration(
       labelText: label,
@@ -108,6 +111,7 @@ Future<void> showClientDialog({
   final nameCtrl = TextEditingController(text: initial.name);
   final phoneCtrl = TextEditingController(text: initial.phone);
   final addrCtrl = TextEditingController(text: initial.address);
+  final _formKey = GlobalKey<FormState>();
 
   return showDialog(
     context: context,
@@ -129,11 +133,111 @@ Future<void> showClientDialog({
                 ),
               ),
               SizedBox(height: 20.h),
-              buildTextField(controller: nameCtrl, label: 'الاسم'),
-              SizedBox(height: 12.h),
-              buildTextField(controller: phoneCtrl, label: 'الهاتف'),
-              SizedBox(height: 12.h),
-              buildTextField(controller: addrCtrl, label: 'العنوان'),
+
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      textAlign: TextAlign.right,
+                      decoration: InputDecoration(
+                        labelText: 'الاسم',
+                        alignLabelWithHint: true,
+                        labelStyle: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16.sp,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade400,
+                            width: 1.w,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryBlue,
+                            width: 2.w,
+                          ),
+                        ),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'الرجاء إدخال الاسم'
+                          : null,
+                    ),
+                    SizedBox(height: 12.h),
+
+                    TextFormField(
+                      controller: phoneCtrl,
+                      textAlign: TextAlign.right,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: 'الهاتف',
+                        alignLabelWithHint: true,
+                        labelStyle: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16.sp,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade400,
+                            width: 1.w,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryBlue,
+                            width: 2.w,
+                          ),
+                        ),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'الرجاء إدخال الهاتف'
+                          : null,
+                    ),
+                    SizedBox(height: 12.h),
+
+                    TextFormField(
+                      controller: addrCtrl,
+                      textAlign: TextAlign.right,
+                      decoration: InputDecoration(
+                        labelText: 'العنوان',
+                        alignLabelWithHint: true,
+                        labelStyle: TextStyle(
+                          color: Colors.black87,
+                          fontSize: 16.sp,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade400,
+                            width: 1.w,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                          borderSide: BorderSide(
+                            color: AppColors.primaryBlue,
+                            width: 2.w,
+                          ),
+                        ),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'الرجاء إدخال العنوان'
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+
               SizedBox(height: 25.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -147,27 +251,8 @@ Future<void> showClientDialog({
                     child: const Text('إلغاء'),
                   ),
                   SizedBox(width: 12.w),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final updated = ClientModel(
-                        id: initial.id,
-                        name: nameCtrl.text.trim(),
-                        phone: phoneCtrl.text.trim(),
-                        address: addrCtrl.text.trim(),
-                      );
-                      onSave(updated);
 
-                      await context.read<ClientsCubit>().clientsPrefs.setData(
-                        CacheKeys.clientId,
-                        updated.id,
-                      );
-                      Navigator.pop(context);
-                      SnackbarHelper.show(
-                        context,
-                        message: "تم اضافة عميل بنجاح",
-                        backgroundColor: AppColors.primaryBlue,
-                      );
-                    },
+                  ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,
                       shape: RoundedRectangleBorder(
@@ -178,6 +263,23 @@ Future<void> showClientDialog({
                         vertical: 12.h,
                       ),
                     ),
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate()) {
+                        final updated = ClientModel(
+                          id: initial.id,
+                          name: nameCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                          address: addrCtrl.text.trim(),
+                        );
+                        onSave(updated);
+
+                        await context.read<ClientsCubit>().clientsPrefs.setData(
+                          CacheKeys.clientId,
+                          updated.id,
+                        );
+                        Navigator.pop(context);
+                      }
+                    },
                     child: Text(
                       'حفظ',
                       style: TextStyle(color: Colors.white, fontSize: 16.sp),

@@ -1,3 +1,4 @@
+import 'package:alrahma/core/widgets/show_confirm_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -53,7 +54,6 @@ class DrawingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // استخدم MediaQuery للعرض والارتفاع أو ScreenUtil
     final padding16 = 16.w;
     final padding32 = 32.w;
     final avatarRadius = 28.w;
@@ -87,7 +87,6 @@ class DrawingsPage extends StatelessWidget {
                 ),
               ),
             ),
-
             body: state.drawings.isEmpty
                 ? Center(
                     child: Padding(
@@ -149,11 +148,22 @@ class DrawingsPage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => DrawingPreviewPage(
-                                paths: d.paths,
-                                shapes: d.shapes,
-                                texts: d.texts,
-                                originalSize: Size(1000, 1000),
+                              builder: (_) => BlocProvider.value(
+                                value: context
+                                    .read<
+                                      DrawingsCubit
+                                    >(), // إعادة استخدام Cubit الموجود
+                                child: DrawingPreviewPage(
+                                  drawing: d,
+                                  projects: state
+                                      .projects, // ← استخدم state.projects هنا
+                                  onUpdate: (updatedDrawing) {
+                                    // تحديث الرسم مباشرة عبر Cubit
+                                    context.read<DrawingsCubit>().updateDrawing(
+                                      updatedDrawing,
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           );
@@ -217,9 +227,19 @@ class DrawingsPage extends StatelessWidget {
                                     color: Colors.redAccent,
                                     size: iconSize,
                                   ),
-                                  onPressed: () => context
-                                      .read<DrawingsCubit>()
-                                      .deleteDrawing(d.id),
+                                  onPressed: () async {
+                                    final confirmed = await showConfirmDeleteDialog(
+                                      context,
+                                      itemName:
+                                          '${project.type} • ${client?.name ?? 'عميل غير معروف'}',
+                                    );
+
+                                    if (confirmed == true) {
+                                      context
+                                          .read<DrawingsCubit>()
+                                          .deleteDrawing(d.id);
+                                    }
+                                  },
                                 ),
                               ],
                             ),
@@ -228,7 +248,6 @@ class DrawingsPage extends StatelessWidget {
                       );
                     },
                   ),
-
             floatingActionButton: FloatingActionButton.extended(
               onPressed: () =>
                   _addDrawing(context, state.projects, state.clients ?? []),

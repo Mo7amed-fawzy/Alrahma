@@ -75,8 +75,8 @@ class DrawingsCubit extends Cubit<DrawingsState> {
   }
 
   Future<void> updateDrawing(DrawingModel updatedDrawing) async {
-    await repository.update(updatedDrawing);
-    await load();
+    await repository.update(updatedDrawing); // ← repository يحفظ الرسم فعليًا؟
+    await load(); // ← يعيد تحميل كل الرسومات من التخزين
   }
 
   Future<void> deleteDrawing(String id) async {

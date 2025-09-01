@@ -1,43 +1,31 @@
+import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:alrahma/core/models/drawing_model.dart';
+import 'package:alrahma/core/models/project_model.dart';
+import 'package:alrahma/features/paint/logic/sketch_painter.dart';
+import 'package:alrahma/features/paint/screens/drawing_canvas_page.dart';
+import 'package:alrahma/features/paint/cubit/drawings_nav_cubit.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/core/utils/custom_text_styles.dart';
-import 'package:alrahma/features/paint/logic/sketch_painter.dart';
 
-class DrawingPreviewPage extends StatefulWidget {
-  final List<PathData> paths;
-  final List<ShapeData> shapes;
-  final List<TextData> texts;
-  final Size originalSize;
+class DrawingPreviewPage extends StatelessWidget {
+  final DrawingModel drawing;
+  final List<ProjectModel> projects;
+  final Function(DrawingModel updated)? onUpdate; // ← جديد
 
   const DrawingPreviewPage({
     super.key,
-    required this.paths,
-    required this.shapes,
-    required this.texts,
-    required this.originalSize,
+    required this.drawing,
+    required this.projects,
+    required this.onUpdate,
   });
 
   @override
-  State<DrawingPreviewPage> createState() => _DrawingPreviewPageState();
-}
-
-class _DrawingPreviewPageState extends State<DrawingPreviewPage> {
-  final GlobalKey _paintKey = GlobalKey();
-
-  @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width * 0.95;
-    final screenHeight = MediaQuery.of(context).size.height * 0.7;
-
-    // حساب scale بحيث الرسم كله يظهر بدون قص
-    double scale;
-    if (widget.originalSize.width / widget.originalSize.height >
-        screenWidth / screenHeight) {
-      scale = screenWidth / widget.originalSize.width;
-    } else {
-      scale = screenHeight / widget.originalSize.height;
-    }
+    final paths = drawing.paths;
+    final shapes = drawing.shapes;
+    final texts = drawing.texts;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -50,20 +38,55 @@ class _DrawingPreviewPageState extends State<DrawingPreviewPage> {
           ),
           backgroundColor: AppColors.accentOrange,
           centerTitle: true,
-          elevation: 4,
-          shadowColor: Colors.orange.withOpacity(0.4),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.white),
+              tooltip: "تعديل الرسمة",
+              onPressed: () async {
+                // فتح صفحة الرسم للتعديل
+                final updatedJson = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DrawingCanvasPage(
+                      projects: projects,
+                      existingDrawing: drawing,
+                      onSave: (jsonData, projectId) {
+                        Navigator.pop(context, jsonData); // نرجع JSON فقط
+                      },
+                    ),
+                  ),
+                );
+
+                if (updatedJson != null && onUpdate != null) {
+                  // تحويل JSON مرة أخرى إلى DrawingModel كامل
+                  final updatedDrawing = DrawingModel.fromJson(updatedJson);
+
+                  // لو محتاج تحافظ على projectId و title من الرسم الأصلي
+                  final finalDrawing = updatedDrawing.copyWith(
+                    projectId: drawing.projectId,
+                    title: drawing.title,
+                    updatedAt: DateTime.now(),
+                  );
+
+                  // تمرير الرسم المحدث للمستدعي
+                  onUpdate!(finalDrawing);
+
+                  SnackbarHelper.show(
+                    context,
+                    message: "تم تحديث الرسمة بنجاح",
+                  );
+                }
+              },
+            ),
+          ],
         ),
         body: Center(
           child: InteractiveViewer(
             panEnabled: true,
             scaleEnabled: true,
-            minScale: 1.0, // لا نصغر الرسم
-            maxScale: 5.0, // يمكن تكبيره حتى 5 مرات
+            minScale: 1.0,
+            maxScale: 5.0,
             child: RepaintBoundary(
-              key: _paintKey,
               child: Card(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
@@ -71,19 +94,19 @@ class _DrawingPreviewPageState extends State<DrawingPreviewPage> {
                 elevation: 4,
                 shadowColor: Colors.orange.withOpacity(0.25),
                 child: Container(
-                  width: widget.originalSize.width,
-                  height: widget.originalSize.height,
+                  width: 1000,
+                  height: 1000,
                   decoration: BoxDecoration(
                     color: Colors.grey[50],
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: CustomPaint(
                     painter: SketchPainter(
-                      paths: widget.paths,
-                      shapes: widget.shapes,
-                      texts: widget.texts,
-                      originalSize: widget.originalSize,
-                      scale: 1.0, // نرسم بالحجم الطبيعي
+                      paths: paths,
+                      shapes: shapes,
+                      texts: texts,
+                      originalSize: const Size(1000, 1000),
+                      scale: 1.0,
                     ),
                   ),
                 ),

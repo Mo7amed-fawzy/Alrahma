@@ -1,3 +1,4 @@
+import 'package:alrahma/core/widgets/show_confirm_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:alrahma/features/client/card.dart';
@@ -100,7 +101,29 @@ class ProjectsPageContent extends StatelessWidget {
                     clients: state.clients,
                     onSave: (updated) => cubit.editProject(updated),
                   ),
-                  onDelete: () => cubit.deleteProject(project.id),
+                  onDelete: () async {
+                    // جلب العميل المرتبط بالمشروع
+                    final client = state.clients.firstWhere(
+                      (c) => c.id == project.clientId,
+                      orElse: () => ClientModel(
+                        id: '',
+                        name: 'عميل غير معروف',
+                        phone: '',
+                        address: '',
+                      ),
+                    );
+
+                    final confirmed = await showConfirmDeleteDialog(
+                      context,
+                      itemName:
+                          '${project.type} • ${client.name}', // اسم المشروع + اسم العميل
+                    );
+
+                    if (confirmed == true) {
+                      cubit.deleteProject(project.id);
+                    }
+                  },
+
                   screenWidth: screenWidth,
                 );
               },
@@ -134,7 +157,6 @@ class ProjectsPageContent extends StatelessWidget {
   }
 }
 
-/// Dialog يستخدم نفس ال helpers بتاع العملاء
 Future<void> showProjectDialog({
   required BuildContext context,
   required ProjectModel initial,
@@ -146,6 +168,7 @@ Future<void> showProjectDialog({
   final typeCtrl = TextEditingController(text: initial.type);
   final descCtrl = TextEditingController(text: initial.description);
   String selectedClientId = initial.clientId;
+  final _formKey = GlobalKey<FormState>();
 
   return showDialog(
     context: context,
@@ -170,50 +193,117 @@ Future<void> showProjectDialog({
               ),
               SizedBox(height: screenWidth * 0.05),
 
-              // Dropdown لاختيار العميل
-              DropdownButtonFormField<String>(
-                value: selectedClientId.isEmpty && clients.isNotEmpty
-                    ? clients.first.id
-                    : selectedClientId,
-                items: clients
-                    .map(
-                      (c) => DropdownMenuItem(
-                        value: c.id,
-                        child: Text(
-                          c.name,
-                          style: CustomTextStyles.cairoRegular16.copyWith(
-                            fontSize: screenWidth * 0.04,
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Dropdown لاختيار العميل مع validation
+                    DropdownButtonFormField<String>(
+                      value: selectedClientId.isEmpty && clients.isNotEmpty
+                          ? clients.first.id
+                          : selectedClientId,
+                      items: clients
+                          .map(
+                            (c) => DropdownMenuItem(
+                              value: c.id,
+                              child: Text(
+                                c.name,
+                                style: CustomTextStyles.cairoRegular16.copyWith(
+                                  fontSize: screenWidth * 0.04,
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => selectedClientId = v ?? '',
+                      decoration: InputDecoration(
+                        labelText: 'العميل',
+                        labelStyle: TextStyle(
+                          fontSize: screenWidth * 0.045,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? 'الرجاء اختيار العميل'
+                          : null,
+                    ),
+                    SizedBox(height: screenWidth * 0.03),
+
+                    // نوع المشروع
+                    TextFormField(
+                      controller: typeCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'النوع',
+                        alignLabelWithHint: true,
+                        labelStyle: TextStyle(
+                          fontSize: screenWidth * 0.045,
+                          color: Colors.black87,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            screenWidth * 0.02,
+                          ),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            screenWidth * 0.02,
+                          ),
+                          borderSide: BorderSide(
+                            color: AppColors.secondaryGolden,
+                            width: 2,
                           ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (v) => selectedClientId = v ?? '',
-                decoration: InputDecoration(
-                  labelText: 'العميل',
-                  labelStyle: TextStyle(
-                    fontSize: screenWidth * 0.045,
-                    color: Colors.black87,
-                  ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'الرجاء إدخال النوع'
+                          : null,
+                    ),
+                    SizedBox(height: screenWidth * 0.03),
+
+                    // وصف المشروع
+                    TextFormField(
+                      controller: descCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'الوصف',
+                        alignLabelWithHint: true,
+                        labelStyle: TextStyle(
+                          fontSize: screenWidth * 0.045,
+                          color: Colors.black87,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            screenWidth * 0.02,
+                          ),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(
+                            screenWidth * 0.02,
+                          ),
+                          borderSide: BorderSide(
+                            color: AppColors.secondaryGolden,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'الرجاء إدخال الوصف'
+                          : null,
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: screenWidth * 0.03),
 
-              // استخدام buildTextField من الـ helpers
-              buildTextField(
-                controller: typeCtrl,
-                label: 'النوع',
-                // fontSize: screenWidth * 0.045,
-              ),
-              SizedBox(height: screenWidth * 0.03),
-              buildTextField(
-                controller: descCtrl,
-                label: 'الوصف',
-                // fontSize: screenWidth * 0.045,
-              ),
               SizedBox(height: screenWidth * 0.05),
-
-              // أزرار الحفظ والإلغاء بنفس الـ style
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -228,21 +318,18 @@ Future<void> showProjectDialog({
                   SizedBox(width: screenWidth * 0.03),
                   ElevatedButton(
                     onPressed: () {
-                      final updated = ProjectModel(
-                        id: initial.id,
-                        clientId: selectedClientId,
-                        type: typeCtrl.text.trim(),
-                        description: descCtrl.text.trim(),
-                        createdAt: initial.createdAt,
-                      );
-                      onSave(updated);
-                      SnackbarHelper.show(
-                        context,
-                        message: " تم حفظ المشروع بنجاح",
-                        backgroundColor: AppColors.secondaryGolden,
-                      );
+                      if (_formKey.currentState!.validate()) {
+                        final updated = ProjectModel(
+                          id: initial.id,
+                          clientId: selectedClientId,
+                          type: typeCtrl.text.trim(),
+                          description: descCtrl.text.trim(),
+                          createdAt: initial.createdAt,
+                        );
+                        onSave(updated);
 
-                      Navigator.pop(context);
+                        Navigator.pop(context);
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.secondaryGolden,

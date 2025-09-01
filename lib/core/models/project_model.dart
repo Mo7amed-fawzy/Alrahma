@@ -4,6 +4,7 @@ class ProjectModel {
   String type; // Kitchen / Window / Dressing Room ...
   String description;
   DateTime createdAt;
+  String? clientName; // ✅ حقل جديد للعرض فقط، اختياري
 
   ProjectModel({
     required this.id,
@@ -11,6 +12,7 @@ class ProjectModel {
     required this.type,
     required this.description,
     required this.createdAt,
+    this.clientName, // ✅ optional
   });
 
   Map<String, dynamic> toJson() => {
@@ -19,6 +21,7 @@ class ProjectModel {
     'type': type,
     'description': description,
     'createdAt': createdAt.toIso8601String(),
+    'clientName': clientName, // ✅ ضفت الحقل هنا
   };
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) => ProjectModel(
@@ -27,5 +30,6 @@ class ProjectModel {
     type: json['type'],
     description: json['description'],
     createdAt: DateTime.parse(json['createdAt']),
+    clientName: json['clientName'], // ✅ ضفت الحقل هنا
   );
 }

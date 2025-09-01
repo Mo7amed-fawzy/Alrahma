@@ -13,16 +13,27 @@ extension ListCopy<T> on List<T> {
 class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
   final DrawingRepository? repository;
 
-  DrawingCanvasCubit({required List<ProjectModel> projects, this.repository})
-    : super(
-        DrawingCanvasState(
-          projects: projects,
-          selectedProjectId: "", // خليها فارغة
-          tool: "freehand",
-          straightLineEnabled: false,
-          isHandTool: false,
-        ),
-      );
+  DrawingCanvasCubit({
+    required List<ProjectModel> projects,
+    DrawingModel? existingDrawing,
+    this.repository,
+  }) : super(
+         DrawingCanvasState(
+           projects: projects,
+           selectedProjectId: existingDrawing?.projectId ?? "",
+           tool: existingDrawing?.tool ?? "freehand",
+           straightLineEnabled: false,
+           isHandTool: existingDrawing?.tool == "hand",
+           currentPaths: existingDrawing?.paths ?? [],
+           shapes: existingDrawing?.shapes ?? [],
+           textData: existingDrawing?.texts ?? [],
+           selectedColor: existingDrawing?.selectedColor ?? Colors.black,
+           strokeWidth: existingDrawing?.strokeWidth ?? 2.0,
+           drawings: existingDrawing != null ? [existingDrawing] : [],
+         ),
+       );
+
+  // بقية الدوال كما هي: addPath, addShape, addText, undo, redo, _autoSaveDrawing, ...
 
   /// -------------------------
   /// تغيير المشروع الحالي
@@ -509,7 +520,7 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
     double? strokeWidth,
     String? tool,
   }) {
-    if (state.drawings.isEmpty) return;
+    if (state.drawings.isEmpty || repository == null) return;
 
     final currentDrawing = state.drawings.last;
 
@@ -522,7 +533,7 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
       tool: tool ?? state.tool,
     );
 
-    // repository?.saveDrawing(updatedDrawing);
+    repository!.update(updatedDrawing); // ← يحفظ فعليًا في التخزين
 
     final updatedDrawings = List<DrawingModel>.from(state.drawings)
       ..removeWhere((d) => d.id == updatedDrawing.id)

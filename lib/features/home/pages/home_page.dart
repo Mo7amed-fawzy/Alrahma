@@ -125,6 +125,7 @@ class HomeView extends StatelessWidget {
                                   create: (_) => PaymentsCubit(
                                     paymentsPrefs: DatabasesNames.paymentsPrefs,
                                     projectsPrefs: DatabasesNames.projectsPrefs,
+                                    clientsPrefs: DatabasesNames.clientsPrefs,
                                   ),
                                   child: const PaymentsPageContent(),
                                 ),

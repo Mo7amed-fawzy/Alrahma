@@ -19,16 +19,34 @@ class ProjectsCubit extends Cubit<ProjectsState> {
 
   Future<void> loadData() async {
     emit(state.copyWith(isLoading: true));
+
     final projects = await projectsPrefs.getModels(
       _projectsKey,
       (j) => ProjectModel.fromJson(j),
     );
+
     final clients = await clientsPrefs.getModels(
       _clientsKey,
       (j) => ClientModel.fromJson(j),
     );
+
+    // ربط كل مشروع باسم العميل
+    final projectsWithClientName = projects.map((project) {
+      final client = clients.firstWhere(
+        (c) => c.id == project.clientId,
+        orElse: () =>
+            ClientModel(id: '', name: 'غير معروف', phone: '', address: ''),
+      );
+      project.clientName = client.name; // ✅ اضفنا clientName
+      return project;
+    }).toList();
+
     emit(
-      state.copyWith(isLoading: false, projects: projects, clients: clients),
+      state.copyWith(
+        isLoading: false,
+        projects: projectsWithClientName,
+        clients: clients,
+      ),
     );
   }
 

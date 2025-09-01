@@ -1,4 +1,5 @@
 import 'package:alrahma/core/services/trial_guard.dart';
+import 'package:alrahma/core/widgets/show_confirm_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -103,8 +104,16 @@ class ClientsPageContent extends StatelessWidget {
                       onSave: (updated) =>
                           context.read<ClientsCubit>().editClient(updated),
                     ),
-                    onDelete: () =>
-                        context.read<ClientsCubit>().deleteClient(client.id),
+                    onDelete: () async {
+                      final confirmed = await showConfirmDeleteDialog(
+                        context,
+                        itemName: client.name,
+                      );
+
+                      if (confirmed == true) {
+                        context.read<ClientsCubit>().deleteClient(client.id);
+                      }
+                    },
                   ),
                 );
               },

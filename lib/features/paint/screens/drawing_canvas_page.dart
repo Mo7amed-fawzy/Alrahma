@@ -15,12 +15,16 @@ import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 class DrawingCanvasPage extends StatelessWidget {
   final List<ProjectModel> projects;
   final Function(String jsonData, String projectId) onSave;
+  final DrawingModel? existingDrawing;
 
   const DrawingCanvasPage({
     super.key,
     required this.projects,
     required this.onSave,
+    this.existingDrawing,
   });
+
+  bool get isEditing => existingDrawing != null; // ← صحيح هنا
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +34,10 @@ class DrawingCanvasPage extends StatelessWidget {
     final iconSplash = 24.r;
 
     return BlocProvider(
-      create: (_) => DrawingCanvasCubit(projects: projects),
+      create: (_) => DrawingCanvasCubit(
+        projects: projects,
+        existingDrawing: existingDrawing,
+      ),
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -67,22 +74,28 @@ class DrawingCanvasPage extends StatelessWidget {
                     }
 
                     final drawing = DrawingModel(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                      id:
+                          existingDrawing?.id ??
+                          DateTime.now().millisecondsSinceEpoch.toString(),
                       projectId: state.selectedProjectId,
-                      title: "رسمة جديدة",
+                      title: existingDrawing?.title ?? "رسمة جديدة",
                       paths: cubit.state.currentPaths,
                       shapes: cubit.state.shapes,
                       texts: cubit.state.textData,
                       selectedColor: cubit.state.selectedColor,
                       strokeWidth: cubit.state.strokeWidth,
                       tool: cubit.state.tool,
-                      createdAt: DateTime.now(),
+                      createdAt: existingDrawing?.createdAt ?? DateTime.now(),
+                      updatedAt: DateTime.now(),
                     );
 
                     final jsonData = drawing.toJson();
+
+                    // إعادة JSON للرابط اللي استدعى الصفحة (Preview أو أي مكان آخر)
                     onSave(jsonData, state.selectedProjectId);
 
-                    Navigator.pop(context);
+                    // إغلاق الصفحة بعد الحفظ
+                    Navigator.pop(context, jsonData);
                   },
                 );
               },
@@ -100,7 +113,9 @@ class DrawingCanvasPage extends StatelessWidget {
                   cubit: cubit,
                   projects: projects,
                   selectedProjectId: state.selectedProjectId,
+                  isEditing: isEditing, // ← جديد
                 ),
+
                 SizedBox(height: sizedBox8),
                 DrawingToolbar(
                   cubit: cubit,

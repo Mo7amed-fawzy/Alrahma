@@ -1,3 +1,5 @@
+import 'package:alrahma/core/models/client_model.dart';
+import 'package:alrahma/core/widgets/show_confirm_delete_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
@@ -70,6 +72,17 @@ class PaymentsPageContent extends StatelessWidget {
                   ),
                 );
 
+                // جلب العميل المرتبط بالمشروع
+                final client = state.clients.firstWhere(
+                  (c) => c.id == project.clientId,
+                  orElse: () => ClientModel(
+                    id: '',
+                    name: 'غير معروف',
+                    phone: '',
+                    address: '',
+                  ),
+                );
+
                 return GestureDetector(
                   onTap: () => _openPaymentDialog(context, payment, cubit),
                   child: AnimatedContainer(
@@ -114,8 +127,9 @@ class PaymentsPageContent extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // تعديل هنا لإضافة اسم العميل بين المشروع والتاريخ
                               Text(
-                                '${project.type} • ${project.createdAt.toString().split(' ').first}',
+                                '${project.type} • ${client.name} • ${project.createdAt.toString().split(' ').first}',
                                 style: CustomTextStyles.cairoBold20.copyWith(
                                   fontSize: screenWidth * 0.045,
                                 ),
@@ -137,7 +151,19 @@ class PaymentsPageContent extends StatelessWidget {
                             color: Colors.red,
                             size: screenWidth * 0.07,
                           ),
-                          onPressed: () => cubit.deletePayment(payment.id),
+                          onPressed: () async {
+                            final confirmed = await showConfirmDeleteDialog(
+                              context,
+                              itemName: client.name.isNotEmpty
+                                  ? client.name
+                                  : 'الدفعية',
+                            );
+
+                            if (confirmed == true) {
+                              // المستخدم ضغط حذف
+                              cubit.deletePayment(payment.id);
+                            }
+                          },
                         ),
                       ],
                     ),
@@ -186,6 +212,8 @@ class PaymentsPageContent extends StatelessWidget {
     final paidCtrl = TextEditingController(text: initial.amountPaid.toString());
     DateTime date = initial.datePaid;
 
+    final _formKey = GlobalKey<FormState>(); // ✅ مفتاح الـ Form
+
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -202,173 +230,213 @@ class PaymentsPageContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(screenWidth * 0.05),
           ),
           child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  isNew ? 'إضافة دفعة' : 'تعديل دفعة',
-                  style: CustomTextStyles.cairoBold20.copyWith(
-                    color: AppColors.successGreen,
-                    fontSize: screenWidth * 0.05,
+            child: Form(
+              key: _formKey, // ✅ إضافة الـ Form
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isNew ? 'إضافة دفعة' : 'تعديل دفعة',
+                    style: CustomTextStyles.cairoBold20.copyWith(
+                      color: AppColors.successGreen,
+                      fontSize: screenWidth * 0.05,
+                    ),
                   ),
-                ),
-                SizedBox(height: screenWidth * 0.04),
-                DropdownButtonFormField<String>(
-                  value:
-                      selectedProjectId.isEmpty &&
-                          cubit.state.projects.isNotEmpty
-                      ? cubit.state.projects.first.id
-                      : selectedProjectId,
-                  items: cubit.state.projects
-                      .map(
-                        (p) => DropdownMenuItem(
-                          value: p.id,
-                          child: Text(
-                            '${p.type} (${p.id.substring(p.id.length - 4)})',
-                            style: TextStyle(fontSize: screenWidth * 0.04),
+                  SizedBox(height: screenWidth * 0.04),
+
+                  // Dropdown...
+                  DropdownButtonFormField<String>(
+                    value:
+                        selectedProjectId.isEmpty &&
+                            cubit.state.projects.isNotEmpty
+                        ? cubit.state.projects.first.id
+                        : selectedProjectId,
+                    items: cubit.state.projects
+                        .map(
+                          (p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(
+                              '${p.type}  • ${p.clientName ?? "غير معروف"}',
+                              style: TextStyle(fontSize: screenWidth * 0.04),
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => selectedProjectId = v ?? '',
-                  decoration: InputDecoration(
-                    labelText: 'المشروع',
-                    labelStyle: TextStyle(
-                      color: AppColors.successGreen,
-                      fontSize: screenWidth * 0.045,
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: AppColors.successGreen),
-                    ),
-                  ),
-                ),
-                SizedBox(height: screenWidth * 0.03),
-                TextField(
-                  controller: totalCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'المبلغ الإجمالي',
-                    labelStyle: TextStyle(
-                      color: AppColors.successGreen,
-                      fontSize: screenWidth * 0.045,
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: AppColors.successGreen),
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                SizedBox(height: screenWidth * 0.03),
-                TextField(
-                  controller: paidCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'المدفوع (دفعة)',
-                    labelStyle: TextStyle(
-                      color: AppColors.successGreen,
-                      fontSize: screenWidth * 0.045,
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: AppColors.successGreen),
-                    ),
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                SizedBox(height: screenWidth * 0.04),
-                Row(
-                  children: [
-                    Text(
-                      'التاريخ: ${date.toString().split(' ').first}',
-                      style: TextStyle(
+                        )
+                        .toList(),
+                    onChanged: (v) => selectedProjectId = v ?? '',
+                    decoration: InputDecoration(
+                      labelText: 'المشروع',
+                      labelStyle: TextStyle(
                         color: AppColors.successGreen,
-                        fontSize: screenWidth * 0.043,
+                        fontSize: screenWidth * 0.045,
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.successGreen),
                       ),
                     ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                          initialDate: date,
-                          builder: (context, child) => Theme(
-                            data: Theme.of(context).copyWith(
-                              colorScheme: ColorScheme.light(
-                                primary: AppColors.successGreen,
-                                onPrimary: Colors.white,
-                                onSurface: Colors.black,
-                              ),
-                            ),
-                            child: child!,
-                          ),
-                        );
-                        if (picked != null) date = picked;
-                      },
-                      child: Text(
-                        'اختر التاريخ',
+                    validator: (v) =>
+                        v == null || v.isEmpty ? 'اختر المشروع' : null,
+                  ),
+
+                  SizedBox(height: screenWidth * 0.03),
+
+                  // المبلغ الإجمالي مع validator
+                  TextFormField(
+                    controller: totalCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'المبلغ الإجمالي',
+                      labelStyle: TextStyle(
+                        color: AppColors.successGreen,
+                        fontSize: screenWidth * 0.045,
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.successGreen),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final total = double.tryParse(totalCtrl.text) ?? 0;
+                      final paid = double.tryParse(paidCtrl.text) ?? -1;
+
+                      if (total <= 0) {
+                        return 'لا يمكن أن يكون المبلغ الإجمالي صفر أو أقل';
+                      }
+                      if (paid < 0) {
+                        return 'ادخل مبلغ صحيح للدفعة';
+                      }
+                      if (paid > total) {
+                        return 'الدفعة لا يمكن أن تكون أكبر من الإجمالي';
+                      }
+                      return null;
+                    },
+                  ),
+
+                  SizedBox(height: screenWidth * 0.03),
+
+                  // المدفوع
+                  TextFormField(
+                    controller: paidCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'المدفوع (دفعة)',
+                      labelStyle: TextStyle(
+                        color: AppColors.successGreen,
+                        fontSize: screenWidth * 0.045,
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.successGreen),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final total = double.tryParse(totalCtrl.text) ?? 0;
+                      final paid = double.tryParse(value ?? '') ?? -1;
+                      if (paid < 0) return 'ادخل مبلغ صحيح';
+                      if (paid > total) return 'الدفعة أكبر من الإجمالي';
+                      return null;
+                    },
+                  ),
+
+                  // باقي الكود (التاريخ، الأزرار)...
+                  SizedBox(height: screenWidth * 0.04),
+                  Row(
+                    children: [
+                      Text(
+                        'التاريخ: ${date.toString().split(' ').first}',
                         style: TextStyle(
                           color: AppColors.successGreen,
                           fontSize: screenWidth * 0.043,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: screenWidth * 0.05),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text(
-                        'إلغاء',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: screenWidth * 0.043,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: screenWidth * 0.03),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.successGreen,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            screenWidth * 0.03,
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
+                            initialDate: date,
+                            builder: (context, child) => Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: ColorScheme.light(
+                                  primary: AppColors.successGreen,
+                                  onPrimary: Colors.white,
+                                  onSurface: Colors.black,
+                                ),
+                              ),
+                              child: child!,
+                            ),
+                          );
+                          if (picked != null) date = picked;
+                        },
+                        child: Text(
+                          'اختر التاريخ',
+                          style: TextStyle(
+                            color: AppColors.successGreen,
+                            fontSize: screenWidth * 0.043,
                           ),
                         ),
                       ),
-                      onPressed: () {
-                        final updated = PaymentModel(
-                          id: initial.id,
-                          projectId: selectedProjectId,
-                          amountTotal: double.tryParse(totalCtrl.text) ?? 0,
-                          amountPaid: double.tryParse(paidCtrl.text) ?? 0,
-                          datePaid: date,
-                        );
-                        if (isNew) {
-                          cubit.addPayment(updated);
-                        } else {
-                          cubit.editPayment(updated);
-                        }
-                        SnackbarHelper.show(
-                          context,
-                          message: "تم حفظ الدفعة بنجاح",
-                          backgroundColor: AppColors.successGreen,
-                        );
-
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        'حفظ',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: screenWidth * 0.045,
+                    ],
+                  ),
+                  SizedBox(height: screenWidth * 0.05),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'إلغاء',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: screenWidth * 0.043,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      SizedBox(width: screenWidth * 0.03),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.successGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              screenWidth * 0.03,
+                            ),
+                          ),
+                        ),
+                        onPressed: () {
+                          if (_formKey.currentState?.validate() ?? false) {
+                            final updated = PaymentModel(
+                              id: initial.id,
+                              projectId: selectedProjectId,
+                              amountTotal: double.parse(totalCtrl.text),
+                              amountPaid: double.parse(paidCtrl.text),
+                              datePaid: date,
+                            );
+                            if (isNew) {
+                              cubit.addPayment(updated);
+                            } else {
+                              cubit.editPayment(updated);
+                            }
+
+                            SnackbarHelper.show(
+                              context,
+                              message: "تم حفظ الدفعة بنجاح",
+                              backgroundColor: AppColors.successGreen,
+                            );
+
+                            Navigator.pop(context);
+                          }
+                        },
+                        child: Text(
+                          'حفظ',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: screenWidth * 0.045,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
