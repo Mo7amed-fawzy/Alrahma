@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+// sketch_painter.dart
 import 'package:alrahma/core/models/drawing_model.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/core/utils/custom_text_styles.dart';
 import 'package:alrahma/features/paint/cubit/drawing_canvas_cubit.dart';
+import 'package:alrahma/features/paint/shapes/logic/shape_factory.dart';
+import 'package:alrahma/features/paint/shapes/logic/shape_painter.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class SketchPainter extends CustomPainter {
   final List<PathData> paths;
@@ -61,46 +64,43 @@ class SketchPainter extends CustomPainter {
       canvas.drawPath(path, paint);
     }
 
-    // ---------------- Shapes النهائية
+    // ---------------- Shapes النهائية (المحفوظة في الـ state)
     for (final s in shapes) {
       final paint = Paint()
         ..color = s.color
         ..strokeWidth = s.strokeWidth
         ..style = s.filled ? PaintingStyle.fill : PaintingStyle.stroke;
 
-      switch (s.type) {
-        case "rect":
-          if (s.start != null && s.end != null) {
-            canvas.drawRect(Rect.fromPoints(s.start!, s.end!), paint);
-          }
-          break;
-        case "circle":
-          if (s.center != null && s.radius != null) {
-            canvas.drawCircle(s.center!, s.radius!, paint);
-          }
-          break;
-      }
+      // رسم باستخدام الـ ShapeFactory (يدعم rect & circle)
+      ShapePainter.drawShape(canvas, s, paint);
     }
 
-    // ---------------- رسم الشكل الجاري أثناء السحب
+    // ---------------- رسم الشكل الجاري أثناء السحب (LIVE PREVIEW)
     if (startShape != null &&
         currentShapePoints != null &&
         currentShapePoints!.isNotEmpty &&
-        (state?.tool == "rect" || state?.tool == "circle")) {
+        state != null) {
       final paint = Paint()
-        ..color = state?.selectedColor ?? Colors.black
-        ..strokeWidth = state?.strokeWidth ?? 2
+        ..color = state.selectedColor
+        ..strokeWidth = state.strokeWidth
         ..style = PaintingStyle.stroke;
 
       final start = startShape!;
       final end = currentShapePoints!.last;
 
-      if (state!.tool == "rect") {
-        canvas.drawRect(Rect.fromPoints(start, end), paint);
-      } else if (state.tool == "circle") {
-        final radius = (end - start).distance / 2;
-        final center = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
-        canvas.drawCircle(center, radius, paint);
+      // // حساب الحجم بين نقط البداية والنهاية
+      // final size = Size(end.dx - start.dx, end.dy - start.dy);
+
+      final previewShapes = ShapeFactory.fromTool(
+        tool: state.tool,
+        start: start,
+        end: end,
+        color: paint.color,
+        strokeWidth: paint.strokeWidth,
+      );
+
+      for (var s in previewShapes) {
+        ShapePainter.drawShape(canvas, s, paint);
       }
     }
 
@@ -109,23 +109,22 @@ class SketchPainter extends CustomPainter {
       final textSpan = TextSpan(
         text: t.text,
         style: CustomTextStyles.cairoRegular18.copyWith(
-          color: t.color, // اللون اللي يختاره المستخدم
-          fontSize: t.fontSize, // الحجم اللي يحدده المستخدم
+          color: t.color,
+          fontSize: t.fontSize,
         ),
       );
 
       final textPainter = TextPainter(
         text: textSpan,
-        textAlign: TextAlign.center, // الافتراضي وسط
-        textDirection: TextDirection.rtl, // RTL عشان العربي
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
       );
 
-      textPainter.layout(minWidth: 0, maxWidth: 0.6.sw); // 60% من عرض الشاشة
+      textPainter.layout(minWidth: 0, maxWidth: 0.6.sw);
 
       canvas.save();
       canvas.translate(t.position.dx, t.position.dy);
 
-      // خلفية اختيارية لو حابب
       if (t.hasBackground == true) {
         final rect = Rect.fromLTWH(
           0,
@@ -145,6 +144,8 @@ class SketchPainter extends CustomPainter {
       textPainter.paint(canvas, Offset.zero);
       canvas.restore();
     }
+
+    canvas.restore();
   }
 
   @override

@@ -6,4 +6,5 @@ abstract class CacheKeys {
   static const String paymentsPrefsKey = 'payments_list';
   static const String drawingsKey = 'drawings_list';
   static const String projectsKey = 'projects_list';
+  static const String datesPrefsKey = 'dates_list';
 }

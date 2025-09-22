@@ -50,7 +50,7 @@ class DrawingsCubit extends Cubit<DrawingsState> {
   /// =======================
   /// Load drawings
   /// =======================
-  Future<void> load() async {
+  Future<void> loadDrawings() async {
     final drawings = await repository.getAll();
     final projects = await projectsPrefs.getModels(
       CacheKeys.projectsKey,
@@ -71,17 +71,17 @@ class DrawingsCubit extends Cubit<DrawingsState> {
   /// =======================
   Future<void> addDrawing(DrawingModel d) async {
     await repository.add(d);
-    await load(); // emit updated state
+    await loadDrawings(); // emit updated state
   }
 
   Future<void> updateDrawing(DrawingModel updatedDrawing) async {
     await repository.update(updatedDrawing); // ← repository يحفظ الرسم فعليًا؟
-    await load(); // ← يعيد تحميل كل الرسومات من التخزين
+    await loadDrawings(); // ← يعيد تحميل كل الرسومات من التخزين
   }
 
   Future<void> deleteDrawing(String id) async {
     await repository.delete(id);
-    await load();
+    await loadDrawings();
   }
 
   Future<void> clearAll() async {
@@ -100,6 +100,6 @@ class DrawingsCubit extends Cubit<DrawingsState> {
 
   Future<void> importDrawingsFromJson(String jsonString) async {
     await repository.importDrawingsFromJson(jsonString);
-    await load();
+    await loadDrawings();
   }
 }

@@ -1,9 +1,11 @@
+import 'package:alrahma/core/services/trial_service_supabase.dart';
+import 'package:alrahma/core/services/trial_service.dart';
 import 'package:flutter/material.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/core/utils/custom_text_styles.dart';
 import 'package:alrahma/core/utils/assets.dart';
 import 'package:alrahma/features/splash_trail/widgets/show_trial_ended_dialog.dart';
-import 'package:alrahma/core/services/trial_service.dart'; // ✅ السيرفيس
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class WelcomeMessage extends StatefulWidget {
   const WelcomeMessage({super.key});
@@ -15,28 +17,67 @@ class WelcomeMessage extends StatefulWidget {
 class _WelcomeMessageState extends State<WelcomeMessage> {
   int _remainingDays = 0;
   bool _dialogShown = false;
-  final TrialService _trialService = TrialService();
+
+  final TrialService _offlineService = TrialService();
+  final TrialServiceSupabase _onlineService = TrialServiceSupabase();
 
   @override
   void initState() {
     super.initState();
-    _initTrial();
+    _checkTrial();
   }
 
-  Future<void> _initTrial() async {
-    await _trialService.init();
-    await _trialService.startTrial();
+  Future<void> _checkTrial() async {
+    try {
+      // تحقق من الاتصال بالإنترنت
+      final connectivityResult = await Connectivity().checkConnectivity();
+      final hasInternet = connectivityResult != ConnectivityResult.none;
 
-    final expired = await _trialService.isTrialExpired();
-    final remaining = await _trialService.remainingDays();
+      Map<String, dynamic> result;
 
+      if (hasInternet) {
+        try {
+          // online
+          result = await _onlineService.checkOrStartTrial();
+          result['source'] = 'online';
+          _log("Using online trial source.");
+        } catch (e) {
+          print("❌ Online check failed: $e. Falling back to offline.");
+          result = await _checkOffline();
+        }
+      } else {
+        result = await _checkOffline();
+      }
+
+      _handleTrialResult(result);
+    } catch (e) {
+      debugPrint("❌ Trial check failed: $e");
+      if (!_dialogShown) {
+        _dialogShown = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          showTrialEndedDialog(context);
+        });
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _checkOffline() async {
+    final remaining = await _offlineService.remainingDays();
+    final status = remaining > 0 ? 'active' : 'expired';
+    _log("Using offline trial source. Remaining days: $remaining");
+    return {"source": "offline", "status": status, "remainingDays": remaining};
+  }
+
+  void _handleTrialResult(Map<String, dynamic> result) {
+    final status = result['status'] as String;
+    final remaining = result['remainingDays'] as int;
+
+    if (!mounted) return;
     setState(() {
       _remainingDays = remaining;
     });
 
-    debugPrint("📌 Remaining days: $_remainingDays | Expired: $expired");
-
-    if (expired && !_dialogShown) {
+    if (status == 'expired' && !_dialogShown) {
       _dialogShown = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showTrialEndedDialog(context);
@@ -44,9 +85,12 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
     }
   }
 
+  void _log(String message) {
+    print("[WelcomeMessage] $message");
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 📱 نسبية حسب حجم الشاشة
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final baseSize = screenWidth * 0.04;
@@ -108,23 +152,13 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
                   ),
                 ),
                 SizedBox(height: baseSize * 0.3),
-                if (_remainingDays > 0)
-                  Text(
-                    'متبقي من فترة التجربة: $_remainingDays يوم/أيام',
-                    style: CustomTextStyles.cairoRegular14.copyWith(
-                      color: Colors.white70,
-                      fontSize: baseSize,
-                    ),
+                Text(
+                  'انجز مهامك بسهولة!',
+                  style: CustomTextStyles.cairoRegular14.copyWith(
+                    color: Colors.white70,
+                    fontSize: baseSize,
                   ),
-                if (_remainingDays <= 0)
-                  Text(
-                    'انتهت فترة التجربة',
-                    style: CustomTextStyles.cairoRegular14.copyWith(
-                      color: Colors.redAccent,
-                      fontWeight: FontWeight.bold,
-                      fontSize: baseSize,
-                    ),
-                  ),
+                ),
               ],
             ),
           ),

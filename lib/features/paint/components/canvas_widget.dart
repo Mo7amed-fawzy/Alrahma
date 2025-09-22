@@ -1,3 +1,5 @@
+// canvas_widget.dart
+import 'package:alrahma/features/paint/shapes/logic/shape_factory.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -31,9 +33,6 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-
     return BlocBuilder<DrawingCanvasCubit, DrawingCanvasState>(
       builder: (context, state) {
         final cubit = context.read<DrawingCanvasCubit>();
@@ -42,13 +41,10 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
           onDoubleTapDown: (details) async {
             if (state.tool == "text") {
               final result = await showAddTextDialog(context);
-
               if (result != null) {
-                // تحويل القيمة لـ double قبل استدعاء .sp
                 final fontSize = (result["fontSize"] != null
                     ? (result["fontSize"] as num).toDouble().sp
                     : 18.sp);
-
                 final position = toTextLocalPosition(
                   context,
                   details.globalPosition,
@@ -57,13 +53,10 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
                   result["text"],
                   fontSize: fontSize,
                 );
-
-                // حصر النص داخل حدود السكتش
                 final clampedPosition = Offset(
                   position.dx.clamp(sketchRect.left, sketchRect.right),
                   position.dy.clamp(sketchRect.top, sketchRect.bottom),
                 );
-
                 cubit.addText(
                   result["text"],
                   position: clampedPosition,
@@ -90,9 +83,26 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
               );
               if (state.tool == "freehand" || state.tool == "line") {
                 currentPoints = [pos];
-              } else if (state.tool == "rect" || state.tool == "circle") {
+              } else if (state.tool == "rect" ||
+                  state.tool == "circle" ||
+                  state.tool == "door" ||
+                  state.tool == "custom1" ||
+                  state.tool == "custom2" ||
+                  state.tool == "custom3" ||
+                  state.tool == "custom4" ||
+                  state.tool == "custom5" ||
+                  state.tool == "custom6" ||
+                  state.tool == "custom7" ||
+                  state.tool == "custom8" ||
+                  state.tool == "custom9" ||
+                  state.tool == "custom10" ||
+                  state.tool == "custom11" ||
+                  state.tool == "custom12" ||
+                  state.tool == "window") {
                 startShape = pos;
                 currentPoints = [pos];
+              } else if (state.tool == "eraser") {
+                cubit.eraseAtPosition(pos);
               }
             }
           },
@@ -111,8 +121,6 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
                 _offset,
                 _scale,
               );
-
-              // حصر النقطة داخل حدود السكتش
               final clampedPos = Offset(
                 pos.dx.clamp(sketchRect.left, sketchRect.right),
                 pos.dy.clamp(sketchRect.top, sketchRect.bottom),
@@ -123,7 +131,22 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
                   cubit.eraseAtPosition(clampedPos);
                 } else if (state.tool == "freehand" || state.tool == "line") {
                   currentPoints.add(clampedPos);
-                } else if (state.tool == "rect" || state.tool == "circle") {
+                } else if (state.tool == "rect" ||
+                    state.tool == "circle" ||
+                    state.tool == "door" ||
+                    state.tool == "custom1" ||
+                    state.tool == "custom2" ||
+                    state.tool == "custom3" ||
+                    state.tool == "custom4" ||
+                    state.tool == "custom5" ||
+                    state.tool == "custom6" ||
+                    state.tool == "custom7" ||
+                    state.tool == "custom8" ||
+                    state.tool == "custom9" ||
+                    state.tool == "custom10" ||
+                    state.tool == "custom11" ||
+                    state.tool == "custom12" ||
+                    state.tool == "window") {
                   if (currentPoints.isEmpty) {
                     currentPoints = [startShape!, clampedPos];
                   } else {
@@ -140,41 +163,46 @@ class _DrawingCanvasWidgetState extends State<DrawingCanvasWidget> {
                 _addHandPath(cubit, state);
               } else if (state.tool == "line") {
                 _addLinePath(cubit, state);
-              } else if ((state.tool == "rect" || state.tool == "circle") &&
+              } else if ((state.tool == "rect" ||
+                      state.tool == "circle" ||
+                      state.tool == "door" ||
+                      state.tool == "custom1" ||
+                      state.tool == "custom2" ||
+                      state.tool == "custom3" ||
+                      state.tool == "custom4" ||
+                      state.tool == "custom5" ||
+                      state.tool == "custom6" ||
+                      state.tool == "custom7" ||
+                      state.tool == "custom8" ||
+                      state.tool == "custom9" ||
+                      state.tool == "custom10" ||
+                      state.tool == "custom11" ||
+                      state.tool == "custom12" ||
+                      state.tool == "window") &&
                   startShape != null &&
                   currentPoints.isNotEmpty) {
                 final endPos = currentPoints.last;
 
-                // حصر النقطة داخل حدود السكتش
+                // نعمل clamp للنقطة الأخيرة عشان ما تخرجش بره حدود sketchRect
                 final clampedEnd = Offset(
                   endPos.dx.clamp(sketchRect.left, sketchRect.right),
                   endPos.dy.clamp(sketchRect.top, sketchRect.bottom),
                 );
 
-                if (state.tool == "rect") {
-                  cubit.addShape(
-                    ShapeData.rect(
-                      start: startShape!,
-                      end: clampedEnd,
-                      color: state.selectedColor,
-                      strokeWidth: state.strokeWidth.sp,
-                    ),
-                  );
-                } else {
-                  final radius = (clampedEnd - startShape!).distance / 2;
-                  final center = Offset(
-                    (startShape!.dx + clampedEnd.dx) / 2,
-                    (startShape!.dy + clampedEnd.dy) / 2,
-                  );
-                  cubit.addShape(
-                    ShapeData.circle(
-                      center: center,
-                      radius: radius,
-                      color: state.selectedColor,
-                      strokeWidth: state.strokeWidth.sp,
-                    ),
-                  );
+                // استدعاء الفنكشن الموحدة في ShapeFactory
+                final shapes = ShapeFactory.fromTool(
+                  tool: state.tool,
+                  start: startShape!,
+                  end: clampedEnd,
+                  color: state.selectedColor,
+                  strokeWidth: state.strokeWidth.sp,
+                );
+
+                // نضيف كل شكل للـ cubit
+                for (var s in shapes) {
+                  cubit.addShape(s);
                 }
+
                 startShape = null;
               }
 

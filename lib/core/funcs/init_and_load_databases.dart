@@ -1,3 +1,4 @@
+import 'package:alrahma/core/services/app_shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:alrahma/core/database/cache/app_preferences.dart';
 import 'package:alrahma/core/services/hive_storage_service.dart';
@@ -7,6 +8,7 @@ abstract class DatabasesNames {
   static late AppPreferences projectsPrefs;
   static late AppPreferences paymentsPrefs;
   static late AppPreferences drawingsPrefs;
+  static AppPreferences? themeMode;
 }
 
 Future<void> loadDatabases() async {
@@ -28,5 +30,8 @@ Future<void> loadDatabases() async {
   );
   DatabasesNames.drawingsPrefs = AppPreferences(
     storageService: HiveStorageService(drawingsBox),
+  );
+  DatabasesNames.themeMode = AppPreferences(
+    storageService: SharedPreferencesService(),
   );
 }

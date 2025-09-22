@@ -44,7 +44,7 @@ class ProjectSelector extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.warning,
-                    color: AppColors.accentOrange,
+                    color: AppColors.primaryBlue,
                     size: 48.sp,
                   ),
                   SizedBox(height: 12.h),
@@ -69,7 +69,7 @@ class ProjectSelector extends StatelessWidget {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accentOrange,
+                      backgroundColor: AppColors.primaryBlue,
                       padding: EdgeInsets.symmetric(
                         horizontal: 20.w,
                         vertical: 14.h,
@@ -97,7 +97,7 @@ class ProjectSelector extends StatelessWidget {
             return DropdownMenuItem(
               value: p.id,
               child: Text(
-                "${p.type} • ${p.clientName ?? 'عميل غير معروف'}",
+                p.type,
                 style: CustomTextStyles.cairoRegular16.copyWith(
                   fontSize: 16.sp,
                 ),
@@ -110,7 +110,7 @@ class ProjectSelector extends StatelessWidget {
             labelText: "اختر المشروع",
             labelStyle: CustomTextStyles.cairoSemiBold16.copyWith(
               fontSize: 16.sp,
-              color: AppColors.accentOrange,
+              color: AppColors.primaryBlue,
             ),
             filled: true,
             fillColor: AppColors.lightGray,
@@ -128,7 +128,7 @@ class ProjectSelector extends StatelessWidget {
             fontSize: 16.sp,
             color: AppColors.textPrimary,
           ),
-          iconEnabledColor: AppColors.accentOrange,
+          iconEnabledColor: AppColors.primaryBlue,
         ),
       ),
     );

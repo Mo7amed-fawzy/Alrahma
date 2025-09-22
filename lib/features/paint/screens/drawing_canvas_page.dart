@@ -1,8 +1,8 @@
+import 'package:alrahma/core/models/project_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:alrahma/core/models/drawing_model.dart';
-import 'package:alrahma/core/models/project_model.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/core/utils/custom_text_styles.dart';
 import 'package:alrahma/features/paint/components/canvas_widget.dart';
@@ -14,7 +14,7 @@ import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 
 class DrawingCanvasPage extends StatelessWidget {
   final List<ProjectModel> projects;
-  final Function(String jsonData, String projectId) onSave;
+  final Function(DrawingModel drawing) onSave;
   final DrawingModel? existingDrawing;
 
   const DrawingCanvasPage({
@@ -24,7 +24,7 @@ class DrawingCanvasPage extends StatelessWidget {
     this.existingDrawing,
   });
 
-  bool get isEditing => existingDrawing != null; // ← صحيح هنا
+  bool get isEditing => existingDrawing != null;
 
   @override
   Widget build(BuildContext context) {
@@ -47,7 +47,7 @@ class DrawingCanvasPage extends StatelessWidget {
               fontSize: titleFont,
             ),
           ),
-          backgroundColor: AppColors.accentOrange,
+          backgroundColor: AppColors.primaryBlue,
           elevation: 4,
           centerTitle: true,
           shape: RoundedRectangleBorder(
@@ -69,6 +69,7 @@ class DrawingCanvasPage extends StatelessWidget {
                       SnackbarHelper.show(
                         context,
                         message: " الرجاء اختيار مشروع قبل الحفظ",
+                        backgroundColor: AppColors.primaryBlue,
                       );
                       return;
                     }
@@ -89,13 +90,11 @@ class DrawingCanvasPage extends StatelessWidget {
                       updatedAt: DateTime.now(),
                     );
 
-                    final jsonData = drawing.toJson();
+                    // ✅ هنا نرجع DrawingModel كامل
+                    onSave(drawing);
 
-                    // إعادة JSON للرابط اللي استدعى الصفحة (Preview أو أي مكان آخر)
-                    onSave(jsonData, state.selectedProjectId);
-
-                    // إغلاق الصفحة بعد الحفظ
-                    Navigator.pop(context, jsonData);
+                    // لو عاوز تقفل الصفحة بعد الحفظ:
+                    // Navigator.pop(context, drawing);
                   },
                 );
               },
@@ -113,9 +112,8 @@ class DrawingCanvasPage extends StatelessWidget {
                   cubit: cubit,
                   projects: projects,
                   selectedProjectId: state.selectedProjectId,
-                  isEditing: isEditing, // ← جديد
+                  isEditing: isEditing,
                 ),
-
                 SizedBox(height: sizedBox8),
                 DrawingToolbar(
                   cubit: cubit,

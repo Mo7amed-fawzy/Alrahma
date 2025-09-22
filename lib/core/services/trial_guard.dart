@@ -9,12 +9,15 @@ class TrialChecker {
 
   /// ✅ Check trial anywhere (Stateful or Stateless)
   Future<bool> checkTrial(BuildContext context) async {
-    // init لو مش معمول
     if (!_trialService.isInitialized) {
       await _trialService.init();
     }
 
+    // validate integrity & device binding
+    await _trialService.validateIntegrity();
+
     final expired = await _trialService.isTrialExpired();
+    final remaining = await _trialService.remainingDays();
 
     if (expired && context.mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -23,6 +26,7 @@ class TrialChecker {
       return false;
     }
 
+    debugPrint("Trial active, $remaining days remaining ✅");
     return true;
   }
 }

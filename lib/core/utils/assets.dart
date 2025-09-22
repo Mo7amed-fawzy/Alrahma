@@ -3,7 +3,7 @@ class AppStyle {
   static const images = _Images();
 
   // Icons constants
-  // static const icons = _Icons();
+  static const icons = _Icons();
 }
 
 class _Images {
@@ -12,6 +12,12 @@ class _Images {
   String get alRaham => 'assets/images/alRaham_logo.png';
 }
 
+class _Icons {
+  const _Icons();
+  String get custum1 => 'assets/icons/custum1.png';
+  String get custum2 => 'assets/icons/custum2.png';
+  String get uUntitled => 'assets/icons/Untitled.png';
+}
 // class _Icons {
 //   const _Icons();
 

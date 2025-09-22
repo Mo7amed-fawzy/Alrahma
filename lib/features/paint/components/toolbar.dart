@@ -52,10 +52,174 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
   @override
   Widget build(BuildContext context) {
     final tools = [
-      {"icon": Icons.text_fields, "tooltip": "نص", "tool": "text"},
+      // ✨ أضف أيقونة جديدة للأشكال الجاهزة
+      {
+        "icon": Icons.apps, // ممكن تغيرها لأيقونة أنسب
+        "tooltip": "أشكال جاهزة",
+        "tool": "customShapes",
+        "extra": () {
+          showModalBottomSheet(
+            context: context,
+            builder: (_) {
+              return Container(
+                padding: EdgeInsets.all(16.w),
+                height: 250.h,
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  children: [
+                    _buildShapeOption(
+                      icon: Icons.door_front_door,
+                      label: "باب بمقبض",
+                      isActive: widget.cubit.state.tool == "door",
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("door");
+                      },
+                    ),
+
+                    _buildShapeOption(
+                      icon: Icons.window,
+                      label: "شباك بحواف",
+                      isActive: widget.cubit.state.tool == "window",
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("window");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.house_siding,
+                      label: "شباك بنوافذ",
+                      isActive: widget.cubit.state.tool == "custom1",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom1");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.window_rounded,
+                      label: "شباك منغلق",
+                      isActive: widget.cubit.state.tool == "custom2",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom2");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.window_rounded,
+                      label: "شباك منغلق مزدوج",
+                      isActive: widget.cubit.state.tool == "custom3",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom3");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.width_normal_rounded,
+                      label: "شباك بنوافذ علوية",
+                      isActive: widget.cubit.state.tool == "custom4",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom4");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.width_normal_rounded,
+                      label: "شباك بنوافذ سفلية",
+                      isActive: widget.cubit.state.tool == "custom5",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom5");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.width_normal_outlined,
+                      label: "شباك ٤ نوافذ علوية",
+                      isActive: widget.cubit.state.tool == "custom6",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom6");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.door_sliding_sharp,
+
+                      label: " باب بشبابيك",
+                      isActive: widget.cubit.state.tool == "custom7",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom7");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.door_sliding_outlined,
+
+                      label: "باب فلات",
+                      isActive: widget.cubit.state.tool == "custom8",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom8");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.space_dashboard_sharp,
+                      label: "باب دولاب",
+                      isActive: widget.cubit.state.tool == "custom9",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom9");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.space_dashboard,
+                      label: "باب دولاب بالعكس ",
+                      isActive: widget.cubit.state.tool == "custom10",
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom10");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.width_full_rounded,
+                      label: " شباك بسطح مستوي",
+                      isActive: widget.cubit.state.tool == "custom11",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom11");
+                      },
+                    ),
+                    _buildShapeOption(
+                      icon: Icons.width_normal_outlined,
+                      label: "شباك بحواف متعددة",
+                      isActive: widget.cubit.state.tool == "custom12",
+
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.cubit.changeTool("custom12");
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      },
+
       {"icon": Icons.crop_square, "tooltip": "مستطيل", "tool": "rect"},
       {"icon": Icons.circle_outlined, "tooltip": "دائرة", "tool": "circle"},
       {"icon": Icons.straighten, "tooltip": "خط مستقيم", "tool": "line"},
+      {"icon": Icons.text_fields, "tooltip": "نص", "tool": "text"},
+
       {"icon": Icons.create, "tooltip": "حر", "tool": "freehand"},
       // {
       //   "icon": Icons.pan_tool,
@@ -108,7 +272,7 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: selectedColor == Colors.black
-                      ? AppColors.accentOrange
+                      ? AppColors.primaryBlue
                       : Colors.grey.shade400,
                   width: 2.w,
                 ),
@@ -133,7 +297,7 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
                     shape: BoxShape.circle,
                     border: Border.all(
                       color: selectedColor == c
-                          ? AppColors.accentOrange
+                          ? AppColors.primaryBlue
                           : Colors.grey.shade400,
                       width: 2.w,
                     ),
@@ -162,7 +326,7 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
             return IconButton(
               icon: Icon(
                 t["icon"] as IconData,
-                color: isActive ? AppColors.accentOrange : Colors.black,
+                color: isActive ? AppColors.primaryBlue : Colors.black,
                 size: 24.sp,
               ),
               tooltip: t["tooltip"] as String,
@@ -188,7 +352,7 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
             child: Slider(
               min: 1,
               max: 10,
-              activeColor: AppColors.accentOrange,
+              activeColor: AppColors.primaryBlue,
               value: widget.strokeWidth,
               label: "${widget.strokeWidth.toInt()} px",
               onChanged: widget.onStrokeChanged,
@@ -198,4 +362,45 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
       ),
     );
   }
+}
+
+Widget _buildShapeOption({
+  required IconData icon,
+  required String label,
+  required VoidCallback onTap,
+  bool isActive = false,
+}) {
+  return Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Material(
+        color: isActive ? AppColors.primaryBlue : Colors.grey.shade200,
+        shape: const CircleBorder(),
+        elevation: isActive ? 4 : 2,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          splashColor: AppColors.primaryBlue.withOpacity(0.3),
+          child: SizedBox(
+            width: 60.r,
+            height: 60.r,
+            child: Icon(
+              icon,
+              size: 28.sp,
+              color: isActive ? Colors.white : Colors.black,
+            ),
+          ),
+        ),
+      ),
+      SizedBox(height: 8.h),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 14.sp,
+          color: isActive ? AppColors.primaryBlue : Colors.black,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    ],
+  );
 }

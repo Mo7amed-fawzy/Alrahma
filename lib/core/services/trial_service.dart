@@ -1,19 +1,12 @@
 // lib/core/services/trial_service.dart
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-/// TrialService Ultra
-/// دمج بين النسخة القديمة والجديدة:
-/// - Singleton + init/reset/startTrial
-/// - تشفير + Hash integrity + Device binding
-/// - SharedPreferences + SecureStorage + SQLite cross-check
-/// - Logging داخلي
 class TrialService {
   static final TrialService _instance = TrialService._internal();
 
@@ -35,7 +28,7 @@ class TrialService {
 
   late SharedPreferences _prefs;
   bool _isInitialized = false;
-  bool get isInitialized => _isInitialized; // ✅ Getter public
+  bool get isInitialized => _isInitialized;
 
   TrialService._internal();
 
@@ -44,10 +37,7 @@ class TrialService {
   // =============================
   // 🔐 التشفير
   // =============================
-  static String _encodeDate(DateTime date) {
-    // حفظ التاريخ بشكل ISO مع UTC
-    return date.toUtc().toIso8601String();
-  }
+  static String _encodeDate(DateTime date) => date.toUtc().toIso8601String();
 
   static DateTime _decodeDate(String encoded) {
     try {
@@ -57,9 +47,6 @@ class TrialService {
     }
   }
 
-  // =============================
-  // 📌 Hash integrity check
-  // =============================
   static String _generateHash(String date, String deviceId) {
     const secret = "MY_SUPER_SECRET_KEY_456";
     return sha256.convert(utf8.encode("$date|$deviceId|$secret")).toString();
@@ -142,18 +129,23 @@ class TrialService {
 
   // =============================
   // ✅ Start trial
-  // =============================_encodeDate
+  // =============================
+  // =============================
+  // تعديل startTrial() بحيث يستخدم SQLite + secureStorage backup
   Future<void> startTrial({int? durationInDays}) async {
     _ensureInit();
 
-    if (_prefs.containsKey(_firstLaunchKey)) {
-      _log("Trial already started on ${_prefs.getString(_firstLaunchKey)}");
+    // لو SQLite موجودة مسبقًا → لا تعيد startTrial
+    final dbData = await _readFromDb();
+    if (dbData != null) {
+      _log("Trial already exists in SQLite, skipping startTrial.");
+      await _restorePrefsFromDb(dbData); // تحدث cache فقط
       return;
     }
 
+    // تأكيد deviceId و integrity
     final now = DateTime.now().toUtc();
     final encoded = _encodeDate(now);
-
     final deviceId = await _getDeviceId();
     final hash = _generateHash(encoded, deviceId);
 
@@ -168,12 +160,68 @@ class TrialService {
       _fakeKey,
       "dummy_${DateTime.now().millisecondsSinceEpoch}",
     );
+
     await _secureStorage.write(key: _firstLaunchKey, value: encoded);
+
     await _saveToDb(encoded, deviceId, hash);
+
+    // Backup مشفر في secureStorage
+    final backupData = jsonEncode({
+      "date": encoded,
+      "deviceId": deviceId,
+      "hash": hash,
+      "duration": durationInDays ?? _defaultTrialDays,
+    });
+    await _secureStorage.write(key: "trial_backup", value: backupData);
 
     _log(
       "Trial started ✅ | Start: $now | Duration: ${durationInDays ?? _defaultTrialDays} days",
     );
+  }
+
+  // =============================
+  // تعديل validateIntegrity لدعم restore من backup
+  Future<void> validateIntegrity() async {
+    final dbData = await _readFromDb();
+    if (dbData != null) {
+      // SQLite موجود → تحديث cache
+      await _restorePrefsFromDb(dbData);
+      _log("Integrity check passed from SQLite ✅");
+      return;
+    }
+
+    // لو SQLite مفقودة → محاولة استرجاع من secureStorage backup
+    final backup = await _secureStorage.read(key: "trial_backup");
+    if (backup != null) {
+      final Map<String, dynamic> data = jsonDecode(backup);
+      final hashValid = await _validateHash(
+        data["date"],
+        data["deviceId"],
+        data["hash"],
+      );
+      if (!hashValid) throw Exception("⛔ Backup hash mismatch!");
+
+      // إعادة إنشاء SQLite من backup
+      await _saveToDb(data["date"], data["deviceId"], data["hash"]);
+      await _prefs.setString(_firstLaunchKey, data["date"]);
+      await _prefs.setString(_hashKey, data["hash"]);
+      await _prefs.setString(_deviceKey, data["deviceId"]);
+      await _prefs.setInt(_trialDurationKey, data["duration"]);
+      _log("Integrity restored from secureStorage backup ✅");
+      return;
+    }
+
+    // لا SQLite ولا backup → إنشاء trial جديد
+    _log("No SQLite or backup found, initializing new trial...");
+    await startTrial();
+  }
+
+  // =============================
+  // مساعدة لإعادة كتابة prefs من أي مصدر
+  Future<void> _restorePrefsFromDb(Map<String, String> dbData) async {
+    await _prefs.setString(_firstLaunchKey, dbData['date']!);
+    await _prefs.setString(_hashKey, dbData['hash']!);
+    await _prefs.setString(_deviceKey, dbData['deviceId']!);
   }
 
   // =============================
@@ -182,10 +230,7 @@ class TrialService {
   Future<int> remainingDays() async {
     _ensureInit();
 
-    if (!_prefs.containsKey(_firstLaunchKey)) {
-      await startTrial();
-    }
-
+    // تحقق من الوقت والجهاز والتكامل
     await validateTime();
     await validateDevice();
     await validateIntegrity();
@@ -195,12 +240,14 @@ class TrialService {
 
     final duration = _prefs.getInt(_trialDurationKey) ?? _defaultTrialDays;
     final endDate = startDate.add(Duration(days: duration));
-    final remaining = endDate.difference(DateTime.now().toUtc()).inDays;
 
-    final safeRemaining = remaining > 0 ? remaining : 0;
-    _log("Remaining days: $safeRemaining");
+    // حساب الأيام المتبقية بدقة أكبر
+    final now = DateTime.now().toUtc();
+    final diff = endDate.difference(now);
+    final remaining = diff.inSeconds > 0 ? (diff.inHours / 24).ceil() : 0;
 
-    return safeRemaining;
+    _log("Remaining days: $remaining");
+    return remaining;
   }
 
   // =============================
@@ -222,13 +269,29 @@ class TrialService {
   // =============================
   // ✅ Reset
   // =============================
-  Future<void> resetTrial() async {
+  Future<void> resetTrial({bool fullReset = false}) async {
     _ensureInit();
-    await _prefs.clear();
+
+    // مسح cache فقط
+    await _prefs.remove(_firstLaunchKey);
+    await _prefs.remove(_hashKey);
+    await _prefs.remove(_deviceKey);
+    await _prefs.remove(_trialDurationKey);
+    await _prefs.remove(_keyA);
+    await _prefs.remove(_keyB);
+    await _prefs.remove(_fakeKey);
+    await _prefs.remove(_lastCheckKey);
+
     await _secureStorage.delete(key: _firstLaunchKey);
-    final db = await _openDb();
-    await db.delete('trial', where: 'id = ?', whereArgs: [1]);
-    _log("Trial reset 🔄");
+
+    if (fullReset) {
+      // مسح SQLite لو fullReset = true
+      final db = await _openDb();
+      await db.delete('trial', where: 'id = ?', whereArgs: [1]);
+      _log("Trial fully reset (prefs + SQLite) 🔄");
+    } else {
+      _log("Trial cache reset (prefs + secureStorage) 🔄 | SQLite preserved ✅");
+    }
   }
 
   // =============================
@@ -253,49 +316,60 @@ class TrialService {
     }
   }
 
-  Future<void> validateIntegrity() async {
-    final encoded = _prefs.getString(_firstLaunchKey);
-    final savedHash = _prefs.getString(_hashKey);
-    final deviceId = _prefs.getString(_deviceKey);
+  // Future<void> validateIntegrity() async {
+  //   final dbData = await _readFromDb();
+  //   if (dbData != null) {
+  //     // SQLite موجود → استخدامه
+  //     await _restorePrefsFromDb(dbData);
+  //     _log("Integrity check passed from SQLite ✅");
+  //     return;
+  //   }
 
-    // ✅ لو أول مرة: مفيش داتا محفوظة → نعتبرها initial setup
-    if (encoded == null || savedHash == null || deviceId == null) {
-      debugPrint("ℹ️ Trial data not found, initializing for the first time...");
-      await startTrial(); // هيعمل create للبيانات
-      return;
-    }
+  //   // لو SQLite مفقودة → محاولة استرجاع من secureStorage backup
+  //   final backup = await _secureStorage.read(key: "trial_backup");
+  //   if (backup != null) {
+  //     final Map<String, dynamic> data = jsonDecode(backup);
+  //     final hashValid = await _validateHash(
+  //       data["date"],
+  //       data["deviceId"],
+  //       data["hash"],
+  //     );
+  //     if (!hashValid) throw Exception("⛔ Backup hash mismatch!");
 
-    final hashValid = await _validateHash(encoded, deviceId, savedHash);
-    if (!hashValid) {
-      throw Exception("⛔ Hash mismatch detected!");
-    }
+  //     // إعادة إنشاء SQLite من backup
+  //     await _saveToDb(data["date"], data["deviceId"], data["hash"]);
+  //     await _restorePrefsFromDb(data.map((k, v) => MapEntry(k, v.toString())));
+  //     _log("Integrity restored from secureStorage backup ✅");
+  //     return;
+  //   }
 
-    final dbData = await _readFromDb();
-    if (dbData == null ||
-        dbData['date'] != encoded ||
-        dbData['deviceId'] != deviceId ||
-        dbData['hash'] != savedHash) {
-      throw Exception("⛔ SQLite cross-check failed!");
-    }
+  //   // لا SQLite ولا backup → إنشاء trial جديد
+  //   _log("No SQLite or backup found, initializing new trial...");
+  //   await startTrial();
+  // }
 
-    debugPrint("✅ Integrity check passed successfully");
-  }
+  // // مساعدة لإعادة كتابة prefs من أي مصدر
+  // Future<void> _restorePrefsFromDb(Map<String, String> dbData) async {
+  //   await _prefs.setString(_firstLaunchKey, dbData['date']!);
+  //   await _prefs.setString(_hashKey, dbData['hash']!);
+  //   await _prefs.setString(_deviceKey, dbData['deviceId']!);
+  // }
 
-  // =============================
-  // ✅ Trial status map
-  // =============================
-  Future<Map<String, dynamic>> getTrialStatus() async {
-    final expired = await isTrialExpired();
-    final remaining = await remainingDays();
-    final encoded = _prefs.getString(_firstLaunchKey);
-    final firstLaunch = encoded != null ? _decodeDate(encoded) : null;
+  // // =============================
+  // // ✅ Trial status map
+  // // =============================
+  // Future<Map<String, dynamic>> getTrialStatus() async {
+  //   final expired = await isTrialExpired();
+  //   final remaining = await remainingDays();
+  //   final encoded = _prefs.getString(_firstLaunchKey);
+  //   final firstLaunch = encoded != null ? _decodeDate(encoded) : null;
 
-    return {
-      "expired": expired,
-      "remainingDays": remaining,
-      "firstLaunch": firstLaunch?.toIso8601String(),
-    };
-  }
+  //   return {
+  //     "expired": expired,
+  //     "remainingDays": remaining,
+  //     "firstLaunch": firstLaunch?.toIso8601String(),
+  //   };
+  // }
 
   // =============================
   // Helpers

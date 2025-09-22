@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:alrahma/core/utils/cache_keys.dart';
 import 'package:alrahma/features/client/cubit/clients_cubit.dart';
-import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import '../../core/models/client_model.dart';
 import '../../core/utils/app_colors.dart';
 import '../../core/utils/custom_text_styles.dart';
@@ -273,10 +271,16 @@ Future<void> showClientDialog({
                         );
                         onSave(updated);
 
-                        await context.read<ClientsCubit>().clientsPrefs.setData(
-                          CacheKeys.clientId,
-                          updated.id,
-                        );
+                        // await context.read<ClientsCubit>().saveSelectedClientId(
+                        //   updated.id,
+                        // );
+                        //  await clientsCubit.repository
+                        //       .saveSelectedClientId(client.id);
+                        await context
+                            .read<ClientsCubit>()
+                            .repository
+                            .saveSelectedClientId(updated.id);
+
                         Navigator.pop(context);
                       }
                     },

@@ -14,10 +14,10 @@ class ProjectsCubit extends Cubit<ProjectsState> {
 
   ProjectsCubit({required this.projectsPrefs, required this.clientsPrefs})
     : super(ProjectsState.initial()) {
-    loadData();
+    loadProjects();
   }
 
-  Future<void> loadData() async {
+  Future<void> loadProjects() async {
     emit(state.copyWith(isLoading: true));
 
     final projects = await projectsPrefs.getModels(
@@ -50,7 +50,7 @@ class ProjectsCubit extends Cubit<ProjectsState> {
     );
   }
 
-  Future<void> _saveAll() async {
+  Future<void> saveAllProjects() async {
     await projectsPrefs.saveModels(
       _projectsKey,
       state.projects,
@@ -61,7 +61,7 @@ class ProjectsCubit extends Cubit<ProjectsState> {
   void addProject(ProjectModel p) async {
     final updatedList = List<ProjectModel>.from(state.projects)..add(p);
     emit(state.copyWith(projects: updatedList));
-    await _saveAll();
+    await saveAllProjects();
   }
 
   void editProject(ProjectModel p) async {
@@ -69,12 +69,12 @@ class ProjectsCubit extends Cubit<ProjectsState> {
         .map((e) => e.id == p.id ? p : e)
         .toList();
     emit(state.copyWith(projects: updatedList));
-    await _saveAll();
+    await saveAllProjects();
   }
 
   void deleteProject(String id) async {
     final updatedList = state.projects.where((e) => e.id != id).toList();
     emit(state.copyWith(projects: updatedList));
-    await _saveAll();
+    await saveAllProjects();
   }
 }

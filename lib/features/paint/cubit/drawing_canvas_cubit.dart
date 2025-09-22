@@ -29,6 +29,7 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
            textData: existingDrawing?.texts ?? [],
            selectedColor: existingDrawing?.selectedColor ?? Colors.black,
            strokeWidth: existingDrawing?.strokeWidth ?? 2.0,
+
            drawings: existingDrawing != null ? [existingDrawing] : [],
          ),
        );
@@ -201,11 +202,17 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
     final updatedRedo = List<DrawingAction>.from(state.redoHistory)
       ..add(lastAction);
 
-    // إزالة آخر عنصر بناءً على نوعه
+    // Helper function: convert single item to list if needed
+    List<T> toList<T>(dynamic data) {
+      if (data is List<T>) return data;
+      return [data as T];
+    }
+
     switch (lastAction.type) {
       case "path":
+        final removedPaths = toList<PathData>(lastAction.data);
         final updatedPaths = List<PathData>.from(state.currentPaths)
-          ..remove(lastAction.data);
+          ..removeWhere((p) => removedPaths.contains(p));
         emit(
           state.copyWith(
             currentPaths: updatedPaths,
@@ -220,8 +227,9 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
         );
         break;
       case "shape":
+        final removedShapes = toList<ShapeData>(lastAction.data);
         final updatedShapes = List<ShapeData>.from(state.shapes)
-          ..remove(lastAction.data);
+          ..removeWhere((s) => removedShapes.contains(s));
         emit(
           state.copyWith(
             shapes: updatedShapes,
@@ -236,8 +244,9 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
         );
         break;
       case "text":
+        final removedTexts = toList<TextData>(lastAction.data);
         final updatedTexts = List<TextData>.from(state.textData)
-          ..remove(lastAction.data);
+          ..removeWhere((t) => removedTexts.contains(t));
         emit(
           state.copyWith(
             textData: updatedTexts,
@@ -265,10 +274,16 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
 
     final updatedHistory = List<DrawingAction>.from(state.history)..add(action);
 
+    List<T> toList<T>(dynamic data) {
+      if (data is List<T>) return data;
+      return [data as T];
+    }
+
     switch (action.type) {
       case "path":
+        final addedPaths = toList<PathData>(action.data);
         final updatedPaths = List<PathData>.from(state.currentPaths)
-          ..add(action.data);
+          ..addAll(addedPaths);
         emit(
           state.copyWith(
             currentPaths: updatedPaths,
@@ -283,8 +298,9 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
         );
         break;
       case "shape":
+        final addedShapes = toList<ShapeData>(action.data);
         final updatedShapes = List<ShapeData>.from(state.shapes)
-          ..add(action.data);
+          ..addAll(addedShapes);
         emit(
           state.copyWith(
             shapes: updatedShapes,
@@ -299,8 +315,9 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
         );
         break;
       case "text":
+        final addedTexts = toList<TextData>(action.data);
         final updatedTexts = List<TextData>.from(state.textData)
-          ..add(action.data);
+          ..addAll(addedTexts);
         emit(
           state.copyWith(
             textData: updatedTexts,
@@ -336,32 +353,61 @@ class DrawingCanvasCubit extends Cubit<DrawingCanvasState> {
   void eraseAtPosition(Offset pos) {
     if (state.tool != "eraser") return;
 
-    // مسح أي PathData تحتوي على نقطة pos تقريباً
+    double eraseRadius = state.strokeWidth * 1.5;
+
     final updatedPaths = state.currentPaths.where((path) {
-      return !path.points.any((p) => (p - pos).distance < state.strokeWidth);
+      if (path.points.length == 2) {
+        final p1 = path.points.first;
+        final p2 = path.points.last;
+
+        double distanceToLine(Offset a, Offset b, Offset p) {
+          final num =
+              ((b.dy - a.dy) * p.dx -
+                      (b.dx - a.dx) * p.dy +
+                      b.dx * a.dy -
+                      b.dy * a.dx)
+                  .abs();
+          final den = (b - a).distance;
+          return den == 0 ? (p - a).distance : num / den;
+        }
+
+        return distanceToLine(p1, p2, pos) > eraseRadius * 1.5;
+      } else {
+        return !path.points.any((p) => (p - pos).distance <= eraseRadius);
+      }
     }).toList();
 
-    // مسح أي شكل يحتوي على نقطة pos (حسب نوعه)
     final updatedShapes = state.shapes.where((shape) {
-      if (shape.type == "rect") {
-        // نتحقق من null قبل الوصول
-        if (shape.start == null || shape.end == null) return true;
-
-        return !(pos.dx >= shape.start!.dx &&
-            pos.dx <= shape.end!.dx &&
-            pos.dy >= shape.start!.dy &&
-            pos.dy <= shape.end!.dy);
-      } else if (shape.type == "circle") {
-        if (shape.center == null || shape.radius == null) return true;
-
-        return (pos - shape.center!).distance > shape.radius!;
+      if (shape.type == "rect" && shape.start != null && shape.end != null) {
+        final rect = Rect.fromPoints(shape.start!, shape.end!);
+        return !rect.inflate(eraseRadius).contains(pos);
+      } else if (shape.type == "circle" &&
+          shape.center != null &&
+          shape.radius != null) {
+        return (pos - shape.center!).distance > shape.radius! + eraseRadius;
+      } else if (shape.type == "path" && shape.path != null) {
+        final pathBounds = shape.path!.getBounds().inflate(eraseRadius);
+        return !pathBounds.contains(pos);
+      } else if (shape.type == "triangle" && shape.path != null) {
+        final triBounds = shape.path!.getBounds().inflate(eraseRadius * 2);
+        return !triBounds.contains(pos);
+      } else if (shape.type == "arrow" && shape.path != null) {
+        final arrowBounds = shape.path!.getBounds().inflate(eraseRadius * 2.5);
+        return !arrowBounds.contains(pos);
       }
+
       return true;
     }).toList();
 
-    // مسح أي نص يحتوي على نقطة pos
+    // Texts
     final updatedTexts = state.textData.where((text) {
-      return (pos - text.position).distance > text.fontSize;
+      final textRect = Rect.fromLTWH(
+        text.position.dx,
+        text.position.dy,
+        text.fontSize * text.text.length * 0.5,
+        text.fontSize,
+      ).inflate(eraseRadius);
+      return !textRect.contains(pos);
     }).toList();
 
     emit(

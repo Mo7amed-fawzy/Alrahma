@@ -1,3 +1,6 @@
+import 'package:alrahma/features/client/repo/clients_repository.dart';
+import 'package:alrahma/features/home/cubit/theme_cubit.dart';
+import 'package:alrahma/features/home/widgets/home_sections.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:alrahma/core/funcs/init_and_load_databases.dart';
@@ -11,20 +14,51 @@ import 'package:alrahma/features/home/widgets/funcs/load_home_stats.dart';
 import 'package:alrahma/features/home/widgets/pressable_card.dart';
 import 'package:alrahma/features/splash_trail/welcome.dart';
 import 'package:alrahma/features/paint/cubit/drawings_nav_cubit.dart';
-import 'package:alrahma/features/paint/screens/drawings_page.dart';
 import 'package:alrahma/features/client/clients_page.dart';
 import 'package:alrahma/features/payment/cubit/payments_cubit.dart';
 import 'package:alrahma/features/project/cubit/projects_cubit.dart';
 import 'package:alrahma/features/payment/payments_page.dart';
-import 'package:alrahma/features/project/projects_page.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => HomeCubit()..loadData(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => HomeCubit()..loadData()),
+        BlocProvider(
+          create: (_) => PaymentsCubit(
+            paymentsPrefs: DatabasesNames.paymentsPrefs,
+            projectsPrefs: DatabasesNames.projectsPrefs,
+            clientsPrefs: DatabasesNames.clientsPrefs,
+          )..loadPayments(),
+        ),
+        BlocProvider(
+          create: (_) => ProjectsCubit(
+            projectsPrefs: DatabasesNames.projectsPrefs,
+            clientsPrefs: DatabasesNames.clientsPrefs,
+          )..loadProjects(),
+        ),
+        BlocProvider(
+          create: (context) => ClientsCubit(
+            repository: ClientsRepository(
+              drawingsPrefs: DatabasesNames.drawingsPrefs,
+              projectsPrefs: DatabasesNames.projectsPrefs,
+              clientsPrefs: DatabasesNames.clientsPrefs,
+            ),
+            projectsCubit: context.read<ProjectsCubit>(),
+            paymentsCubit: context.read<PaymentsCubit>(),
+          )..loadAllData(),
+        ),
+        BlocProvider(
+          create: (_) => DrawingsCubit(
+            drawingsPrefs: DatabasesNames.drawingsPrefs,
+            projectsPrefs: DatabasesNames.projectsPrefs,
+            clientPrefs: DatabasesNames.clientsPrefs,
+          )..loadDrawings(),
+        ),
+      ],
       child: BlocBuilder<HomeCubit, HomeState>(
         builder: (context, state) {
           if (state.isLoading) {
@@ -55,139 +89,132 @@ class HomeView extends StatelessWidget {
                 elevation: 4,
                 backgroundColor: AppColors.primaryBlue,
               ),
-              body: Padding(
-                padding: EdgeInsets.all(gridPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const WelcomeMessage(),
-
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: gridPadding,
-                      mainAxisSpacing: gridPadding,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      childAspectRatio: cardWidth / (cardWidth * 1.1),
+              body: RefreshIndicator(
+                onRefresh: () async {
+                  await context.read<HomeCubit>().refreshAll(context);
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: EdgeInsets.all(gridPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        PressableCard(
-                          title: 'العملاء',
-                          icon: Icons.people,
-                          color: AppColors.primaryBlue,
-                          iconSize: iconSize,
-                          textSize: textSize,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider(
-                                  create: (context) => ClientsCubit(
-                                    clientsPrefs: DatabasesNames.clientsPrefs,
-                                  ),
-                                  child: const ClientsPageContent(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        PressableCard(
-                          title: 'المشاريع',
-                          icon: Icons.work_outline,
-                          color: AppColors.secondaryGolden,
-                          iconSize: iconSize,
-                          textSize: textSize,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider(
-                                  create: (context) => ProjectsCubit(
-                                    projectsPrefs: DatabasesNames.projectsPrefs,
-                                    clientsPrefs: DatabasesNames.clientsPrefs,
-                                  ),
-                                  child: const ProjectsPageContent(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        PressableCard(
-                          title: 'المدفوعات',
-                          icon: Icons.payments_outlined,
-                          color: AppColors.successGreen,
-                          iconSize: iconSize,
-                          textSize: textSize,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider(
-                                  create: (_) => PaymentsCubit(
-                                    paymentsPrefs: DatabasesNames.paymentsPrefs,
-                                    projectsPrefs: DatabasesNames.projectsPrefs,
-                                    clientsPrefs: DatabasesNames.clientsPrefs,
-                                  ),
-                                  child: const PaymentsPageContent(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        PressableCard(
-                          title: 'الرسومات',
-                          icon: Icons.draw_outlined,
-                          color: AppColors.accentOrange,
-                          iconSize: iconSize,
-                          textSize: textSize,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider(
-                                  create: (_) => DrawingsCubit(
-                                    drawingsPrefs: DatabasesNames.drawingsPrefs,
-                                    projectsPrefs: DatabasesNames.projectsPrefs,
-                                    clientPrefs: DatabasesNames.clientsPrefs,
-                                  )..load(),
-                                  child: const DrawingsPage(),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    FutureBuilder<Map<String, int>>(
-                      future: loadHomeStats(),
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return buildPremiumLoader();
-                        }
-                        final stats = snapshot.data!;
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        const WelcomeMessage(),
+
+                        GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: gridPadding,
+                          mainAxisSpacing: gridPadding,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          childAspectRatio: cardWidth / (cardWidth * 1.1),
                           children: [
-                            buildStatCard(
-                              'عملاء اليوم',
-                              '${stats['clients']}',
-                              AppColors.primaryBlue,
+                            // العملاء
+                            PressableCard(
+                              title: 'معلومات العميل',
+                              icon: Icons.badge,
+                              color: AppColors.primaryBlue,
+                              iconSize: iconSize,
+                              textSize: textSize,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MultiBlocProvider(
+                                      providers: [
+                                        BlocProvider.value(
+                                          value: context.read<ClientsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<ProjectsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<PaymentsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<DrawingsCubit>(),
+                                        ),
+                                      ],
+                                      child: ClientsPage(),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
-                            buildStatCard(
-                              'مشاريع جارية',
-                              '${stats['projects']}',
-                              AppColors.secondaryGolden,
-                            ),
-                            buildStatCard(
-                              'مدفوعات مستلمة',
-                              '${stats['payments']}',
-                              AppColors.successGreen,
+
+                            // المدفوعات
+                            PressableCard(
+                              title: 'المدفوعات',
+                              icon: Icons.payments_outlined,
+                              color: AppColors.alrahmaSecondColor,
+                              iconSize: iconSize,
+                              textSize: textSize,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MultiBlocProvider(
+                                      providers: [
+                                        BlocProvider.value(
+                                          value: context.read<ClientsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<ProjectsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<PaymentsCubit>(),
+                                        ),
+                                        BlocProvider.value(
+                                          value: context.read<DrawingsCubit>(),
+                                        ),
+                                      ],
+                                      child: const PaymentsPageContent(),
+                                    ),
+                                  ),
+                                );
+                              },
                             ),
                           ],
-                        );
-                      },
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        FutureBuilder<Map<String, int>>(
+                          future: loadHomeStats(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return buildPremiumLoader();
+                            }
+                            final stats = snapshot.data!;
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                buildStatCard(
+                                  'العملاء',
+                                  '${stats['clients']}',
+                                  AppColors.primaryBlue,
+                                ),
+                                buildStatCard(
+                                  'مشاريع جارية',
+                                  '${stats['projects']}',
+                                  AppColors.secondaryGolden,
+                                ),
+                                buildStatCard(
+                                  'مدفوعات مستلمة',
+                                  '${stats['payments']}',
+                                  AppColors.alrahmaSecondColor,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 20),
+                        DashboardScreen(),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

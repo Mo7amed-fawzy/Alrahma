@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// =======================
@@ -36,19 +37,19 @@ class PathData {
 }
 
 class ShapeData {
-  final String type; // "rect" أو "circle"
+  final String type;
+  final Offset? start;
+  final Offset? end;
+  final Offset? center;
+  final double? radius;
   final Color color;
   final double strokeWidth;
   final bool filled;
 
-  // للـ rectangle
-  final Offset? start;
-  final Offset? end;
+  final Path? path;
+  final List<Offset>? points;
 
-  // للـ circle
-  final Offset? center;
-  final double? radius;
-
+  // ================= RECTANGLE =================
   ShapeData.rect({
     required this.start,
     required this.end,
@@ -57,8 +58,11 @@ class ShapeData {
     this.filled = false,
   }) : type = "rect",
        center = null,
-       radius = null;
+       radius = null,
+       path = null,
+       points = null;
 
+  // ================= CIRCLE =================
   ShapeData.circle({
     required this.center,
     required this.radius,
@@ -67,7 +71,155 @@ class ShapeData {
     this.filled = false,
   }) : type = "circle",
        start = null,
-       end = null;
+       end = null,
+       path = null,
+       points = null;
+
+  // ================= TRIANGLE =================
+  ShapeData.triangle({
+    required this.start,
+    required this.end,
+    required this.color,
+    this.strokeWidth = 2.0,
+    this.filled = false,
+  }) : type = "triangle",
+       center = null,
+       radius = null,
+       path = _buildTrianglePath(start!, end!),
+       points = _extractPoints(_buildTrianglePath(start, end));
+
+  // ================= ARROW =================
+  // ================= ARROW =================
+  ShapeData.arrow({
+    required this.start,
+    required this.end,
+    required this.color,
+    this.strokeWidth = 2.0,
+    this.filled = false,
+  }) : type = "arrow",
+       center = null,
+       radius = null,
+       path = _buildArrowPathTriangle(start!, end!), // 👈 هنا
+       points = _extractPoints(_buildArrowPathTriangle(start, end));
+
+  // // النسخة القديمة (موجودة زي ما هي)
+  // static Path _buildArrowPath(Offset start, Offset end) {
+  //   final path = Path();
+  //   // خط السهم
+  //   path.moveTo(start.dx, start.dy);
+  //   path.lineTo(end.dx, end.dy);
+
+  //   // رأس السهم (ثابتة يسار/يمين)
+  //   final arrowSize = 10;
+  //   path.moveTo(end.dx, end.dy);
+  //   path.lineTo(end.dx - arrowSize, end.dy - arrowSize);
+  //   path.moveTo(end.dx, end.dy);
+  //   path.lineTo(end.dx - arrowSize, end.dy + arrowSize);
+
+  //   return path;
+  // }
+
+  // نسخة جديدة بتلف الراس حسب الاتجاه
+  // نسخة جديدة لسهم برأس مثلث
+  static Path _buildArrowPathTriangle(Offset start, Offset end) {
+    final path = Path();
+    path.moveTo(start.dx, start.dy);
+    path.lineTo(end.dx, end.dy);
+
+    final arrowLength = 14.0; // طول راس السهم
+    final arrowWidth = 10.0; // عرض راس السهم
+
+    final angle = atan2(end.dy - start.dy, end.dx - start.dx);
+
+    // نقطتين لقاعدة المثلث
+    final p1 = Offset(
+      end.dx - arrowLength * cos(angle) - arrowWidth * sin(angle),
+      end.dy - arrowLength * sin(angle) + arrowWidth * cos(angle),
+    );
+
+    final p2 = Offset(
+      end.dx - arrowLength * cos(angle) + arrowWidth * sin(angle),
+      end.dy - arrowLength * sin(angle) - arrowWidth * cos(angle),
+    );
+
+    // نرسم المثلث
+    path.moveTo(end.dx, end.dy);
+    path.lineTo(p1.dx, p1.dy);
+    path.lineTo(p2.dx, p2.dy);
+    path.close();
+
+    return path;
+  }
+
+  // ================= PATH =================
+  ShapeData.path({
+    required Path path,
+    required this.color,
+    this.strokeWidth = 2.0,
+    this.filled = false,
+  }) : type = "path",
+       start = null,
+       end = null,
+       center = null,
+       radius = null,
+       path = path,
+       points = _extractPoints(path);
+
+  // -------- Helpers --------
+  static Path _buildTrianglePath(Offset start, Offset end) {
+    final path = Path();
+    final p1 = Offset((start.dx + end.dx) / 2, start.dy); // top middle
+    final p2 = Offset(start.dx, end.dy); // bottom left
+    final p3 = Offset(end.dx, end.dy); // bottom right
+    path.moveTo(p1.dx, p1.dy);
+    path.lineTo(p2.dx, p2.dy);
+    path.lineTo(p3.dx, p3.dy);
+    path.close();
+    return path;
+  }
+
+  // static Path _buildArrowPath(Offset start, Offset end) {
+  //   final path = Path();
+
+  //   // الخط الرئيسي
+  //   path.moveTo(start.dx, start.dy);
+  //   path.lineTo(end.dx, end.dy);
+
+  //   // اتجاه السهم (الزاوية)
+  //   final arrowSize = 12.0;
+  //   final angle = atan2(end.dy - start.dy, end.dx - start.dx);
+
+  //   // النقطتين بتوع رأس السهم
+  //   final arrowP1 = Offset(
+  //     end.dx - arrowSize * cos(angle - pi / 6),
+  //     end.dy - arrowSize * sin(angle - pi / 6),
+  //   );
+  //   final arrowP2 = Offset(
+  //     end.dx - arrowSize * cos(angle + pi / 6),
+  //     end.dy - arrowSize * sin(angle + pi / 6),
+  //   );
+
+  //   // رأس السهم
+  //   path.moveTo(end.dx, end.dy);
+  //   path.lineTo(arrowP1.dx, arrowP1.dy);
+  //   path.lineTo(arrowP2.dx, arrowP2.dy);
+  //   path.close();
+
+  //   return path;
+  // }
+
+  static List<Offset> _extractPoints(Path path) {
+    final metrics = path.computeMetrics().toList();
+    final points = <Offset>[];
+    for (var metric in metrics) {
+      final length = metric.length;
+      for (double d = 0.0; d < length; d += 5.0) {
+        final pos = metric.getTangentForOffset(d)!.position;
+        points.add(pos);
+      }
+    }
+    return points;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -79,6 +231,8 @@ class ShapeData {
       'end': end != null ? {'dx': end!.dx, 'dy': end!.dy} : null,
       'center': center != null ? {'dx': center!.dx, 'dy': center!.dy} : null,
       'radius': radius,
+      // ⚠️ الـ Path مش هينفع يتخزن بسهولة → مؤقتاً نخليه null
+      'points': points?.map((e) => {'dx': e.dx, 'dy': e.dy}).toList(),
     };
   }
 
@@ -101,8 +255,47 @@ class ShapeData {
           strokeWidth: map['strokeWidth'] ?? 2.0,
           filled: map['filled'] ?? false,
         );
+      case "path":
+        final pts =
+            (map['points'] as List?)
+                ?.map((e) => Offset(e['dx'], e['dy']))
+                .toList() ??
+            [];
+        final rebuiltPath = Path();
+        if (pts.isNotEmpty) {
+          rebuiltPath.moveTo(pts.first.dx, pts.first.dy);
+          for (var p in pts.skip(1)) {
+            rebuiltPath.lineTo(p.dx, p.dy);
+          }
+          rebuiltPath.close();
+        }
+        return ShapeData.path(
+          path: rebuiltPath,
+          color: Color(map['color']),
+          strokeWidth: map['strokeWidth'] ?? 2.0,
+          filled: map['filled'] ?? false,
+        );
+
+      case "triangle":
+        return ShapeData.triangle(
+          start: Offset(map['start']['dx'], map['start']['dy']),
+          end: Offset(map['end']['dx'], map['end']['dy']),
+          color: Color(map['color']),
+          strokeWidth: map['strokeWidth'] ?? 2.0,
+          filled: map['filled'] ?? false,
+        );
+
+      case "arrow":
+        return ShapeData.arrow(
+          start: Offset(map['start']['dx'], map['start']['dy']),
+          end: Offset(map['end']['dx'], map['end']['dy']),
+          color: Color(map['color']),
+          strokeWidth: map['strokeWidth'] ?? 2.0,
+          filled: map['filled'] ?? false,
+        );
+
       default:
-        throw Exception("Unknown shape type $type");
+        throw Exception("Unknown shape type: $type");
     }
   }
 }

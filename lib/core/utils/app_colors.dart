@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 abstract class AppColors {
   // ---------- Primary Colors ----------
   static const Color primaryBlue = Color(0xFF1E88E5); // أزرق هادئ
+  static const Color alrahmaprimaryColor = Color(0xFF1d1964); // أزرق تقيل
   static const Color secondaryGolden = Color(0xFFFFA000); // ذهبي / برتقالي فاتح
   static const Color accentOrange = Color(
     0xFFFF7043,
   ); // برتقالي إضافي إذا احتجت
 
   // ---------- Success / Warning / Error ----------
-  static const Color successGreen = Color(
-    0xFF43A047,
-  ); // للمدفوعات أو الحالة الجيدة
+  static const Color alrahmaSecondColor = Color(0xFF00a9ab);
+  // static const Color alrahmaSecondColor = Color(0xFF00a9ab); // تحذيرات بسيطة
+  // للمدفوعات أو الحالة الجيدة
   static const Color warningYellow = Color(0xFFFFEB3B); // تحذيرات بسيطة
   static const Color errorRed = Color(0xFFE53935); // أخطاء أو متأخرات
 

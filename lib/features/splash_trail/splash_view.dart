@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:math'; // ✅ علشان نستخدم min()
+import 'dart:math';
 import 'package:alrahma/core/utils/assets.dart';
 import 'package:alrahma/core/services/trial_service.dart';
 import 'package:flutter/material.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/features/home/pages/home_page.dart';
-
-// ✅ استدعاء السيرفس
 
 class SplashView extends StatefulWidget {
   const SplashView({super.key});
@@ -49,9 +47,11 @@ class _SplashViewState extends State<SplashView>
 
     // ✅ بعد 3 ثواني نتحقق من الترايل
     Timer(const Duration(seconds: 3), () async {
+      if (!mounted) return;
       try {
         await _trialService.init();
-        await _trialService.startTrial(); // هيبدأ الترايل لو مش موجود فقط
+        await _trialService.validateIntegrity(); // ✅ حماية إضافية
+        await _trialService.startTrial();
 
         if (!mounted) return;
         Navigator.of(context).pushReplacement(_createRoute());
