@@ -29,6 +29,10 @@ dependencies:
   fl_chart: ^0.68.0
   path: ^1.9.1
   connectivity_plus: ^7.0.0
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  gal: ^2.3.2
+  image_picker: ^1.2.0
   
 dev_dependencies:
   flutter_test:
@@ -44,7 +48,6 @@ flutter:
   assets:
     - .env
     - assets/images/
-    - assets/icons/
 
 fonts:
   - family: Cairo
