@@ -4,6 +4,16 @@
 A custom mobile application built for **Al-Rahma Company**, specialized in **Aluminum (Alumetal) & UPVC windows and doors** work.  
 The app helps craftsmen and managers organize their workflow digitally instead of manual paperwork.  
 
+---
+
+## Demo
+📹 Watch the 5-minute demo video here:  
+👉 [Demo Video on Google Drive](your-drive-link-here)
+
+*(Screenshots and a full screen-by-screen documentation will be added soon.)*
+
+---
+
 It provides tools for managing:
 - Clients
 - Projects
@@ -41,20 +51,10 @@ It provides tools for managing:
 - **UI Responsiveness:** MediaQuery + Flutter ScreenUtil  
 
 ---
-
-## Demo
-📹 Watch the 5-minute demo video here:  
-👉 [Demo Video on Google Drive](your-drive-link-here)
-
-*(Screenshots and a full screen-by-screen documentation will be added soon.)*
-
----
 License
 
 This project is a private business app for Al-Rahma Company.
 Not intended for public commercial use.
-
-
 
 ---
 
