@@ -41,10 +41,8 @@ windows/flutter/
 .metadata 
 migration.sql 
 analysis_options.yaml 
-pubspec.lock
-lib 
+pubspec.lock 
 ios 
-android 
 linux 
 macos 
 test 

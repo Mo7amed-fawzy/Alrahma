@@ -1,0 +1,55 @@
+name: Build and Upload APK
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Install supabase CLI (for storage cp)
+        run: |
+          npm install -g supabase
+
+      - name: Upload APK to Supabase storage
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
+          # create filename with run number or timestamp to avoid overwrite
+          DEST="apk/app_v${{ github.run_number }}.apk"
+          supabase storage cp "$APK_PATH" "$DEST" --project-ref $SUPABASE_PROJECT_REF --api-key $SUPABASE_API_KEY
+
+      - name: Insert update record into updates table
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          VERSION=${{ github.run_number }}
+          APK_URL="https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co/storage/v1/object/public/apk/app_v${VERSION}.apk"
+
+          # Insert into updates table via REST; use service_role key in Authorization
+          curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
+            -H "apikey: ${{ secrets.SUPABASE_API_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}" \
+            --fail

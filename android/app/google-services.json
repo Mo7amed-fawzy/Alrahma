@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "357115720030",
+    "project_id": "alrahma-84671",
+    "storage_bucket": "alrahma-84671.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:357115720030:android:aa9958f03447c239469fcf",
+        "android_client_info": {
+          "package_name": "com.example.alrahma"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBP8ujYT9Up0OOPwP8GEh3d0JkAe0x9e78"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
