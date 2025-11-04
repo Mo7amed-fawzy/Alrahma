@@ -9,27 +9,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # خطوة 1: استنساخ المشروع
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # خطوة 2: إعداد Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: "stable"
 
+      # خطوة 3: تثبيت الاعتمادات
       - name: Install dependencies
         run: flutter pub get
 
+      # خطوة 4: إنشاء ملف .env
       - name: Create .env file
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
           echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> .env
           echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}" >> .env
+          echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> .env
 
+      # خطوة 5: بناء APK للإصدار release
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Upload APK to Supabase storage using npx
+      # خطوة 6: رفع APK إلى Supabase Storage
+      - name: Upload APK to Supabase storage
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -37,17 +44,22 @@ jobs:
         run: |
           APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
           DEST="apk/app_v${{ github.run_number }}.apk"
-          npx supabase storage cp "$APK_PATH" "$DEST" --experimental
+          
+          # ربط المشروع أولاً (ضروري لتجنب خطأ "Cannot find project ref")
+          npx supabase link --project-ref $SUPABASE_PROJECT_REF
 
+          # رفع الملف
+          npx supabase storage cp "$APK_PATH" "$DEST" --public
+
+      # خطوة 7: إدراج سجل التحديث في جدول updates
       - name: Insert update record into updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           VERSION=${{ github.run_number }}
-          APK_URL="https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co/storage/v1/object/public/apk/app_v${VERSION}.apk"
-          
+          APK_URL="${{ secrets.SUPABASE_URL }}/storage/v1/object/public/apk/app_v${VERSION}.apk"
+
           curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
             -H "apikey: ${{ secrets.SUPABASE_API_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_API_KEY }}" \
