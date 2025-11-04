@@ -3,7 +3,7 @@ name: Build & Release APK (tag-based, with Supabase broadcast)
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'   # يعمل عند push لأي tag يبدأ بـ v
 
 jobs:
   build-release:
@@ -13,45 +13,52 @@ jobs:
       APK_BUCKET: apk
 
     steps:
+      # ✅ 1) Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      # ✅ 2) Java
       - name: Setup Java (JDK)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
+      # ✅ 3) Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
+      # ✅ 4) Cache dependencies
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
 
-      # ✅ إنشاء .env داخل السيرفر قبل عملية build
+      # ✅ 5) Generate .env for flutter build
       - name: Create .env file for Flutter
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "✅ .env file created for Flutter build"
 
+      # ✅ 6) Install dart packages
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      # ✅ 7) Build APK (universal)
       - name: Build release APK
         run: |
           echo "🚀 Building universal release APK..."
           flutter build apk --release
           echo "✅ Build finished"
 
+      # ✅ 8) Rename APK with tag
       - name: Rename APK to include tag
         run: |
           TAG=${GITHUB_REF#refs/tags/}
@@ -61,6 +68,16 @@ jobs:
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "Renamed APK -> ${APK_NAME}"
 
+      # ✅ NEW: extract numeric version for Supabase (int only)
+      - name: Extract numeric version
+        run: |
+          RAW="${TAG}"                  # ex: v1.0.1
+          CLEAN="${RAW#v}"             # ex: 1.0.1
+          VERSION_INT=$(echo "$CLEAN" | cut -d '.' -f 1)
+          echo "VERSION_INT=${VERSION_INT}" >> $GITHUB_ENV
+          echo "✅ Parsed version integer: ${VERSION_INT}"
+
+      # ✅ 9) Create GitHub Release & upload APK
       - name: Create GitHub Release and upload APK
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -69,6 +86,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ✅ 10) Create public download URL
       - name: Construct release download URL
         run: |
           TAG=${TAG}
@@ -77,22 +95,24 @@ jobs:
           echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
           echo "Release asset URL: ${RELEASE_DOWNLOAD_URL}"
 
+      # ✅ 11) Insert update record into Supabase (INTEGER version)
       - name: Insert update record into Supabase updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           set -euo pipefail
-          VERSION="${TAG}"
+
+          VERSION_INT="${VERSION_INT}"
           APK_URL="${RELEASE_DOWNLOAD_URL}"
 
-          echo "Inserting update record: version=${VERSION}, url=${APK_URL}"
+          echo "Inserting update record into Supabase: version=${VERSION_INT}, url=${APK_URL}"
 
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${SUPABASE_URL}/rest/v1/updates" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"version\": \"${VERSION}\", \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
+            -d "{\"version\": ${VERSION_INT}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
 
           BODY=$(echo "$RESPONSE" | sed '$d')
           CODE=$(echo "$RESPONSE" | tail -n1)
@@ -105,7 +125,8 @@ jobs:
             exit 1
           fi
 
+      # ✅ 12) Final output
       - name: Print final download URL
         run: |
-          echo "✅ APK published and broadcasted."
+          echo "✅ APK published successfully."
           echo "Download URL: ${RELEASE_DOWNLOAD_URL}"
