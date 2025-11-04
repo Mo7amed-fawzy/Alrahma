@@ -12,20 +12,20 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APK_BUCKET: apk                    # اسم الباكت في Supabase (غيّره هنا لو لازم)
+      APK_BUCKET: apk  # اسم الباكت في Supabase
 
     steps:
       # 1) استنساخ المستودع
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) إعداد Node (مطلوب لاستخدام npx / supabase CLI)
+      # 2) إعداد Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # 3) إعداد Java JDK (مطلوب للـ Android build)
+      # 3) إعداد Java JDK
       - name: Setup Java (JDK)
         uses: actions/setup-java@v4
         with:
@@ -50,7 +50,7 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # 7) إنشاء ملف .env محلي من Secrets
+      # 7) إنشاء ملف .env من Secrets
       - name: Create .env file
         run: |
           set -e
@@ -101,20 +101,20 @@ jobs:
       - name: Insert update record into updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           APK_BUCKET: ${{ env.APK_BUCKET }}
         run: |
           set -euo pipefail
           VERSION=${{ github.run_number }}
-          APK_URL="${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${APK_BUCKET}/app_v${VERSION}.apk"
+          APK_URL="${SUPABASE_URL}/storage/v1/object/public/${APK_BUCKET}/app_v${VERSION}.apk"
 
           echo "Inserting update record for version $VERSION"
-          curl -s -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
-            -H "apikey: ${SUPABASE_API_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_API_KEY}" \
+          RESPONSE=$(curl -s -X POST "${SUPABASE_URL}/rest/v1/updates" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}" \
-            --fail
+            -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
+          echo "Supabase response: $RESPONSE"
 
       # 12) طباعة رابط APK العام
       - name: Print APK public URL
