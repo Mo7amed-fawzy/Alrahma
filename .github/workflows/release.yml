@@ -60,21 +60,32 @@ jobs:
           echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}" >> .env
           echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> .env
 
-      # 8) Build release APK مع split-per-abi
+      # 8) قراءة وتحديث version.txt
+      - name: Increment version
+        id: version
+        run: |
+          if [ ! -f version.txt ]; then echo "0" > version.txt; fi
+          VERSION=$(cat version.txt)
+          NEW_VERSION=$((VERSION + 1))
+          echo $NEW_VERSION > version.txt
+          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "Using version $NEW_VERSION"
+
+      # 9) Build release APK مع split-per-abi
       - name: Build release APK
         run: |
           set -euo pipefail
           echo "Building release APK..."
           flutter build apk --release --split-per-abi
 
-      # 9) رفع artifact (arm64 فقط)
+      # 10) رفع artifact (arm64 فقط)
       - name: Upload APK as artifact (optional)
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
           path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
-      # 10) رفع APK إلى Supabase (arm64 فقط)
+      # 11) رفع APK إلى Supabase (arm64 فقط)
       - name: Upload APK to Supabase storage
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -89,7 +100,7 @@ jobs:
             exit 1
           fi
 
-          DEST="ss:///${APK_BUCKET}/app_v${{ github.run_number }}.apk"
+          DEST="ss:///${APK_BUCKET}/app_v${{ env.VERSION }}.apk"
 
           echo "Linking supabase project..."
           npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
@@ -97,7 +108,7 @@ jobs:
           echo "Uploading $APK_PATH to $DEST (using --experimental flag)"
           npx supabase --experimental storage cp "$APK_PATH" "$DEST"
 
-      # 11) إدخال سجل في جدول updates عبر REST API
+      # 12) إدخال سجل في جدول updates عبر REST API
       - name: Insert update record into updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -105,19 +116,18 @@ jobs:
           APK_BUCKET: ${{ env.APK_BUCKET }}
         run: |
           set -euo pipefail
-          VERSION=${{ github.run_number }}
-          APK_URL="${SUPABASE_URL}/storage/v1/object/public/${APK_BUCKET}/app_v${VERSION}.apk"
+          APK_URL="${SUPABASE_URL}/storage/v1/object/public/${APK_BUCKET}/app_v${{ env.VERSION }}.apk"
 
-          echo "Inserting update record for version $VERSION"
+          echo "Inserting update record for version ${{ env.VERSION }}"
           RESPONSE=$(curl -s -X POST "${SUPABASE_URL}/rest/v1/updates" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
+            -d "{\"version\": ${{ env.VERSION }}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
           echo "Supabase response: $RESPONSE"
 
-      # 12) طباعة رابط APK العام
+      # 13) طباعة رابط APK العام
       - name: Print APK public URL
         run: |
           echo "APK public URL (if bucket is public):"
-          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ env.APK_BUCKET }}/app_v${{ github.run_number }}.apk"
+          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ env.APK_BUCKET }}/app_v${{ env.VERSION }}.apk"
