@@ -45,11 +45,11 @@ jobs:
           APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
           DEST="apk/app_v${{ github.run_number }}.apk"
           
-          # ربط المشروع أولاً (ضروري لتجنب خطأ "Cannot find project ref")
+          # ربط المشروع أولاً
           npx supabase link --project-ref $SUPABASE_PROJECT_REF
 
-          # رفع الملف
-          npx supabase storage cp "$APK_PATH" "$DEST" --public
+          # رفع الملف بدون --public
+          npx supabase storage cp "$APK_PATH" "$DEST"
 
       # خطوة 7: إدراج سجل التحديث في جدول updates
       - name: Insert update record into updates table
