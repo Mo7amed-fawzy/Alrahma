@@ -51,14 +51,14 @@ jobs:
         run: flutter pub get
 
       # 7) (اختياري) استعادة keystore من secret لتوقيع release (ضع KEYSTORE_BASE64 في Secrets إن وُجد)
-      - name: Restore keystore (optional)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-        run: |
-          set -e
-          echo "Restoring keystore..."
-          mkdir -p android/app
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore.jks
-          # تأكد من ضبط android/app/build.gradle لاستخدام keystore.jks عند التوقيع
+      # - name: Restore keystore (optional)
+      #   if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      #   run: |
+      #     set -e
+      #     echo "Restoring keystore..."
+      #     mkdir -p android/app
+      #     echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore.jks
+      #     # تأكد من ضبط android/app/build.gradle لاستخدام keystore.jks عند التوقيع
 
       # 8) إنشاء ملف .env محلي من Secrets (مفيد أثناء البناء إذا التطبيق يحتاجها)
       - name: Create .env file
