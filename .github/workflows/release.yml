@@ -29,12 +29,10 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Install Supabase CLI locally
+      - name: Install Supabase CLI via npm (local)
         run: |
-          mkdir -p $HOME/supabase-cli
-          curl -L https://github.com/supabase/cli/releases/latest/download/supabase_$(uname)_x64.tar.gz -o supabase.tar.gz
-          tar -xzf supabase.tar.gz -C $HOME/supabase-cli
-          echo "$HOME/supabase-cli" >> $GITHUB_PATH
+          npm install --prefix $HOME supabase
+          echo "$HOME/node_modules/.bin" >> $GITHUB_PATH
 
       - name: Upload APK to Supabase storage
         env:
