@@ -29,12 +29,7 @@ jobs:
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Install Supabase CLI via npm (local)
-        run: |
-          npm install --prefix $HOME supabase
-          echo "$HOME/node_modules/.bin" >> $GITHUB_PATH
-
-      - name: Upload APK to Supabase storage
+      - name: Upload APK to Supabase storage using npx
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -42,7 +37,8 @@ jobs:
         run: |
           APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
           DEST="apk/app_v${{ github.run_number }}.apk"
-          supabase storage cp "$APK_PATH" "$DEST" --project-ref $SUPABASE_PROJECT_REF --api-key $SUPABASE_API_KEY
+          # استخدام الـ experimental flag المطلوب مع النسخة الجديدة
+          npx supabase storage cp "$APK_PATH" "$DEST" --experimental
 
       - name: Insert update record into updates table
         env:
