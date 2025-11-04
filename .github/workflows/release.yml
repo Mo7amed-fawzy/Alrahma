@@ -32,14 +32,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4) إعداد Flutter (subosito action يثبت Flutter + Android SDK)
+      # 4) إعداد Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      # 5) Cache لمكتبات Dart/Flutter لتسريع البنى
+      # 5) Cache لمكتبات Dart/Flutter
       - name: Cache pub packages
         uses: actions/cache@v4
         with:
@@ -50,17 +50,7 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # 7) (اختياري) استعادة keystore من secret لتوقيع release (ضع KEYSTORE_BASE64 في Secrets إن وُجد)
-      # - name: Restore keystore (optional)
-      #   if: ${{ secrets.KEYSTORE_BASE64 != '' }}
-      #   run: |
-      #     set -e
-      #     echo "Restoring keystore..."
-      #     mkdir -p android/app
-      #     echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore.jks
-      #     # تأكد من ضبط android/app/build.gradle لاستخدام keystore.jks عند التوقيع
-
-      # 8) إنشاء ملف .env محلي من Secrets (مفيد أثناء البناء إذا التطبيق يحتاجها)
+      # 7) إنشاء ملف .env محلي من Secrets
       - name: Create .env file
         run: |
           set -e
@@ -70,21 +60,21 @@ jobs:
           echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}" >> .env
           echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> .env
 
-      # 9) Build release APK
+      # 8) Build release APK مع split-per-abi
       - name: Build release APK
         run: |
           set -euo pipefail
           echo "Building release APK..."
           flutter build apk --release --split-per-abi
 
-      # 10) رفع artifact كـ نسخة للتحميل اليدوي (اختياري لكن مفيد للـ debugging)
+      # 9) رفع artifact (arm64 فقط)
       - name: Upload APK as artifact (optional)
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
-      # 11) ربط مشروع Supabase ورفع الـ APK إلى الـ Storage
+      # 10) رفع APK إلى Supabase (arm64 فقط)
       - name: Upload APK to Supabase storage
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -99,17 +89,15 @@ jobs:
             exit 1
           fi
 
-          # صيغة الوجهة المطلوبة من CLI: ss:///bucket/path
           DEST="ss:///${APK_BUCKET}/app_v${{ github.run_number }}.apk"
 
           echo "Linking supabase project..."
           npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
 
           echo "Uploading $APK_PATH to $DEST (using --experimental flag)"
-          # ملاحظة: أمر storage cp يحتاج --experimental في بعض إصدارات CLI
           npx supabase --experimental storage cp "$APK_PATH" "$DEST"
 
-      # 12) إدخال سجل في جدول updates عبر REST API (يستخدم service_role key)
+      # 11) إدخال سجل في جدول updates عبر REST API
       - name: Insert update record into updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -128,7 +116,7 @@ jobs:
             -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}" \
             --fail
 
-      # 13) طباعة رابط العام (إن كان الباكت عام)
+      # 12) طباعة رابط APK العام
       - name: Print APK public URL
         run: |
           echo "APK public URL (if bucket is public):"
