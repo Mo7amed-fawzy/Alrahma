@@ -1,68 +1,135 @@
+# release.yml
+# GitHub Actions workflow لبناء ورفع APK إلى Supabase Storage وإدخال سجل في جدول updates
+# ملاحظة: ضع كل القيم الحساسة كـ Secrets في GitHub (Settings -> Secrets)
 name: Build and Upload APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-and-upload:
     runs-on: ubuntu-latest
 
+    env:
+      APK_BUCKET: apk                    # اسم الباكت في Supabase (غيّره هنا لو لازم)
+
     steps:
-      # خطوة 1: استنساخ المشروع
+      # 1) استنساخ المستودع
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # خطوة 2: إعداد Flutter
+      # 2) إعداد Node (مطلوب لاستخدام npx / supabase CLI)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3) إعداد Java JDK (مطلوب للـ Android build)
+      - name: Setup Java (JDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 4) إعداد Flutter (subosito action يثبت Flutter + Android SDK)
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: "stable"
+          channel: 'stable'
+          cache: true
 
-      # خطوة 3: تثبيت الاعتمادات
-      - name: Install dependencies
+      # 5) Cache لمكتبات Dart/Flutter لتسريع البنى
+      - name: Cache pub packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+
+      # 6) تثبيت اعتمادات المشروع
+      - name: Install Flutter dependencies
         run: flutter pub get
 
-      # خطوة 4: إنشاء ملف .env
+      # 7) (اختياري) استعادة keystore من secret لتوقيع release (ضع KEYSTORE_BASE64 في Secrets إن وُجد)
+      - name: Restore keystore (optional)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          set -e
+          echo "Restoring keystore..."
+          mkdir -p android/app
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/keystore.jks
+          # تأكد من ضبط android/app/build.gradle لاستخدام keystore.jks عند التوقيع
+
+      # 8) إنشاء ملف .env محلي من Secrets (مفيد أثناء البناء إذا التطبيق يحتاجها)
       - name: Create .env file
         run: |
+          set -e
+          : > .env
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
           echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> .env
           echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}" >> .env
           echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> .env
 
-      # خطوة 5: بناء APK للإصدار release
+      # 9) Build release APK
       - name: Build release APK
-        run: flutter build apk --release
+        run: |
+          set -euo pipefail
+          echo "Building release APK..."
+          flutter build apk --release
 
-      # خطوة 6: رفع APK إلى Supabase Storage
+      # 10) رفع artifact كـ نسخة للتحميل اليدوي (اختياري لكن مفيد للـ debugging)
+      - name: Upload APK as artifact (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      # 11) ربط مشروع Supabase ورفع الـ APK إلى الـ Storage
       - name: Upload APK to Supabase storage
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          APK_BUCKET: ${{ env.APK_BUCKET }}
         run: |
+          set -euo pipefail
           APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
-          DEST="apk/app_v${{ github.run_number }}.apk"
-          
-          # ربط المشروع أولاً
-          npx supabase link --project-ref $SUPABASE_PROJECT_REF
+          if [ ! -f "$APK_PATH" ]; then
+            echo "ERROR: APK not found at $APK_PATH"
+            exit 1
+          fi
 
-          # رفع الملف بدون --public
-          npx supabase storage cp "$APK_PATH" "$DEST"
+          # صيغة الوجهة المطلوبة من CLI: ss:///bucket/path
+          DEST="ss:///${APK_BUCKET}/app_v${{ github.run_number }}.apk"
 
-      # خطوة 7: إدراج سجل التحديث في جدول updates
+          echo "Linking supabase project..."
+          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+          echo "Uploading $APK_PATH to $DEST (using --experimental flag)"
+          # ملاحظة: أمر storage cp يحتاج --experimental في بعض إصدارات CLI
+          npx supabase --experimental storage cp "$APK_PATH" "$DEST"
+
+      # 12) إدخال سجل في جدول updates عبر REST API (يستخدم service_role key)
       - name: Insert update record into updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          APK_BUCKET: ${{ env.APK_BUCKET }}
         run: |
+          set -euo pipefail
           VERSION=${{ github.run_number }}
-          APK_URL="${{ secrets.SUPABASE_URL }}/storage/v1/object/public/apk/app_v${VERSION}.apk"
+          APK_URL="${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${APK_BUCKET}/app_v${VERSION}.apk"
 
-          curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
-            -H "apikey: ${{ secrets.SUPABASE_API_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_API_KEY }}" \
+          echo "Inserting update record for version $VERSION"
+          curl -s -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
+            -H "apikey: ${SUPABASE_API_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_API_KEY}" \
             -H "Content-Type: application/json" \
             -d "{\"version\": ${VERSION}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}" \
             --fail
+
+      # 13) طباعة رابط العام (إن كان الباكت عام)
+      - name: Print APK public URL
+        run: |
+          echo "APK public URL (if bucket is public):"
+          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ env.APK_BUCKET }}/app_v${{ github.run_number }}.apk"
