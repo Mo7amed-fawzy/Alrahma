@@ -1,125 +1,102 @@
-name: Build and Upload APK
+name: Build & Release APK (tag-based, with Supabase broadcast)
 
 on:
   push:
-    branches: ["main"]
+    tags:
+      - 'v*'   # يعمل فقط عندما تعمل push لِـ tag يبدأ بـ v
 
 jobs:
-  build-and-upload:
+  build-release:
     runs-on: ubuntu-latest
 
     env:
+      # لا تغير هذه القيمة هنا - إذا أردت باكت اسم مختلف غيّره
       APK_BUCKET: apk
 
     steps:
-      # 1) Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # 2) Node.js for Supabase CLI
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          fetch-depth: 0
 
-      # 3) Java JDK
       - name: Setup Java (JDK)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # 4) Flutter
-      - name: Set up Flutter
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
           cache: true
 
-      # 5) Cache pub packages
-      - name: Cache pub packages
+      - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
-          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.yaml') }}
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
 
-      # 6) Install dependencies
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # 7) Create .env file
-      - name: Create .env file
-        run: |
-          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
-          echo "SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}" >> .env
-          echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF }}" >> .env
-          echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> .env
-
-      # ✅ NEW: Increment version.txt
-      - name: Increment version
-        id: version
-        run: |
-          if [ ! -f version.txt ]; then echo "0" > version.txt; fi
-          VERSION=$(cat version.txt)
-          NEW_VERSION=$((VERSION + 1))
-          echo $NEW_VERSION > version.txt
-          echo "VERSION=$NEW_VERSION" >> $GITHUB_ENV
-          echo "✅ Using version: $NEW_VERSION"
-
-      # ✅ Build universal APK (NOT split per ABI)
       - name: Build release APK
         run: |
-          echo "Building universal release APK..."
+          echo "🚀 Building universal release APK..."
           flutter build apk --release
+          echo "✅ Build finished"
 
-      # Upload APK as artifact (optional)
-      - name: Upload APK as artifact
-        uses: actions/upload-artifact@v4
+      - name: Rename APK to include tag
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          APK_NAME="app-${TAG}.apk"
+          mv build/app/outputs/flutter-apk/app-release.apk "${APK_NAME}"
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "Renamed APK -> ${APK_NAME}"
+
+      - name: Create GitHub Release and upload APK
+        id: create_release
+        uses: softprops/action-gh-release@v2
         with:
-          name: app-release-universal
-          path: build/app/outputs/flutter-apk/app-release.apk
-
-      # ✅ Upload APK to Supabase
-      - name: Upload APK to Supabase storage
+          files: ${{ env.APK_NAME }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-          APK_BUCKET: ${{ env.APK_BUCKET }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construct release download URL
         run: |
-          APK_PATH="build/app/outputs/flutter-apk/app-release.apk"
-          if [ ! -f "$APK_PATH" ]; then
-            echo "❌ APK not found!"
-            exit 1
-          fi
+          TAG=${TAG}
+          APK_NAME=${APK_NAME}
+          # URL that users can download directly
+          RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
+          echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
+          echo "Release asset URL: ${RELEASE_DOWNLOAD_URL}"
 
-          DEST="ss:///${APK_BUCKET}/app_v${{ env.VERSION }}.apk"
-
-          echo "Linking Supabase project..."
-          npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
-
-          echo "Uploading APK..."
-          npx supabase --experimental storage cp "$APK_PATH" "$DEST"
-
-      # ✅ Insert update row
-      - name: Insert update record
+      - name: Insert update record into Supabase updates table
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          APK_BUCKET: ${{ env.APK_BUCKET }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # service_role key in Secrets
         run: |
-          APK_URL="${SUPABASE_URL}/storage/v1/object/public/${APK_BUCKET}/app_v${{ env.VERSION }}.apk"
-
-          echo "Posting update record for version ${{ env.VERSION }}"
-
-          curl -s -X POST "${SUPABASE_URL}/rest/v1/updates" \
+          set -euo pipefail
+          VERSION="${TAG}"
+          APK_URL="${RELEASE_DOWNLOAD_URL}"
+          echo "Inserting update record: version=${VERSION}, url=${APK_URL}"
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${SUPABASE_URL}/rest/v1/updates" \
             -H "apikey: ${SUPABASE_SERVICE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
             -H "Content-Type: application/json" \
-            -d "{\"version\": ${{ env.VERSION }}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}"
+            -d "{\"version\": \"${VERSION}\", \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
+          # Split response and status
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          CODE=$(echo "$RESPONSE" | tail -n1)
+          echo "Supabase response code: $CODE"
+          echo "Supabase response body: $BODY"
+          if [ "$CODE" -ge 400 ]; then
+            echo "Failed to insert update into Supabase (HTTP $CODE)"
+            exit 1
+          fi
 
-      # ✅ Print public URL
-      - name: Print APK public URL
+      - name: Print final download URL
         run: |
-          echo "✅ APK URL:"
-          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/${{ env.APK_BUCKET }}/app_v${{ env.VERSION }}.apk"
+          echo "✅ APK published and broadcasted."
+          echo "Download URL: ${RELEASE_DOWNLOAD_URL}"
