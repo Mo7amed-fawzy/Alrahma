@@ -31,13 +31,12 @@ jobs:
 
       - name: Upload APK to Supabase storage using npx
         env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_API_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
         run: |
           APK_PATH=./build/app/outputs/flutter-apk/app-release.apk
           DEST="apk/app_v${{ github.run_number }}.apk"
-          # استخدام الـ experimental flag المطلوب مع النسخة الجديدة
           npx supabase storage cp "$APK_PATH" "$DEST" --experimental
 
       - name: Insert update record into updates table
