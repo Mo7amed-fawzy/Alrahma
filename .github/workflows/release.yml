@@ -1,4 +1,4 @@
-name: Build & Release APK (tag-based, with Supabase broadcast)
+name: Build & Release APK (tag-based, with Supabase sync)
 
 on:
   push:
@@ -68,15 +68,6 @@ jobs:
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "Renamed APK -> ${APK_NAME}"
 
-      # ✅ NEW: extract numeric version for Supabase (int only)
-      - name: Extract numeric version
-        run: |
-          RAW="${TAG}"                  # ex: v1.0.1
-          CLEAN="${RAW#v}"             # ex: 1.0.1
-          VERSION_INT=$(echo "$CLEAN" | cut -d '.' -f 1)
-          echo "VERSION_INT=${VERSION_INT}" >> $GITHUB_ENV
-          echo "✅ Parsed version integer: ${VERSION_INT}"
-
       # ✅ 9) Create GitHub Release & upload APK
       - name: Create GitHub Release and upload APK
         id: create_release
@@ -86,47 +77,26 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ 10) Create public download URL
+      # ✅ 10) Construct release download URL
       - name: Construct release download URL
         run: |
           TAG=${TAG}
           APK_NAME=${APK_NAME}
           RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
           echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
-          echo "Release asset URL: ${RELEASE_DOWNLOAD_URL}"
 
-      # ✅ 11) Insert update record into Supabase (INTEGER version)
-      - name: Insert update record into Supabase updates table
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      # ✅ 11) Trigger Supabase Edge Function to sync APK → Storage
+      - name: Call Supabase Edge Function sync-apk
         run: |
-          set -euo pipefail
-
-          VERSION_INT="${VERSION_INT}"
-          APK_URL="${RELEASE_DOWNLOAD_URL}"
-
-          echo "Inserting update record into Supabase: version=${VERSION_INT}, url=${APK_URL}"
-
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${SUPABASE_URL}/rest/v1/updates" \
-            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+          echo "Calling Supabase Edge Function to sync APK..."
+          curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{\"version\": ${VERSION_INT}, \"apk_url\": \"${APK_URL}\", \"force_update\": false}")
-
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          CODE=$(echo "$RESPONSE" | tail -n1)
-
-          echo "Supabase response code: $CODE"
-          echo "Supabase response body: $BODY"
-
-          if [ "$CODE" -ge 400 ]; then
-            echo "Failed to insert update into Supabase (HTTP $CODE)"
-            exit 1
-          fi
+            -d "{\"tag\": \"${TAG}\", \"token\": \"${{ secrets.GH_TOKEN }}\"}"
 
       # ✅ 12) Final output
       - name: Print final download URL
         run: |
-          echo "✅ APK published successfully."
-          echo "Download URL: ${RELEASE_DOWNLOAD_URL}"
+          echo "✅ Build + Sync completed successfully!"
+          echo "Public APK URL (auto latest):"
+          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/apk/latest.apk"
