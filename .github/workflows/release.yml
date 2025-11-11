@@ -67,7 +67,7 @@ jobs:
           files: ${{ env.APK_NAME }}
         env:
           # this must be a fine-grained PAT or a token with releases:write permission
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Construct release download URL
         run: |
