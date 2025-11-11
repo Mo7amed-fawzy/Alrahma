@@ -13,52 +13,44 @@ jobs:
       APK_BUCKET: apk
 
     steps:
-      # ✅ 1) Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ✅ 2) Java
       - name: Setup Java (JDK)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ✅ 3) Flutter
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      # ✅ 4) Cache dependencies
       - name: Cache pub dependencies
         uses: actions/cache@v4
         with:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
 
-      # ✅ 5) Generate .env for flutter build
-      - name: Create .env file for Flutter
+      - name: Create .env file for Flutter build
         run: |
           echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
           echo "✅ .env file created for Flutter build"
 
-      # ✅ 6) Install dart packages
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # ✅ 7) Build APK (universal)
       - name: Build release APK
         run: |
           echo "🚀 Building universal release APK..."
           flutter build apk --release
           echo "✅ Build finished"
 
-      # ✅ 8) Rename APK with tag
       - name: Rename APK to include tag
         run: |
           TAG=${GITHUB_REF#refs/tags/}
@@ -68,35 +60,35 @@ jobs:
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "Renamed APK -> ${APK_NAME}"
 
-      # ✅ 9) Create GitHub Release & upload APK
       - name: Create GitHub Release and upload APK
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ env.APK_NAME }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # this must be a fine-grained PAT or a token with releases:write permission
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ✅ 10) Construct release download URL
       - name: Construct release download URL
         run: |
           TAG=${TAG}
           APK_NAME=${APK_NAME}
           RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
           echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
+          echo "Release asset URL: ${RELEASE_DOWNLOAD_URL}"
 
-      # ✅ 11) Trigger Supabase Edge Function to sync APK → Storage
-      - name: Call Supabase Edge Function sync-apk
+      - name: Call Supabase Edge Function (sync release link into updates table)
         run: |
-          echo "Calling Supabase Edge Function to sync APK..."
+          echo "Calling Supabase Edge Function to sync release link..."
           curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{\"tag\": \"${TAG}\", \"token\": \"${{ secrets.GH_TOKEN }}\"}"
+            -H "Accept: application/json" \
+            -d "{\"tag\":\"${TAG}\",\"token\":\"${{ secrets.GH_TOKEN }}\"}" \
+            -sS -o /tmp/sync-response.json || true
+          echo "Function response:"
+          cat /tmp/sync-response.json || true
 
-      # ✅ 12) Final output
-      - name: Print final download URL
+      - name: Print final info
         run: |
-          echo "✅ Build + Sync completed successfully!"
-          echo "Public APK URL (auto latest):"
-          echo "${{ secrets.SUPABASE_URL }}/storage/v1/object/public/apk/latest.apk"
+          echo "✅ Build + Release + Sync finished"
+          echo "Public release URL: $RELEASE_DOWNLOAD_URL"
