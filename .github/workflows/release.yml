@@ -81,6 +81,7 @@ jobs:
         run: |
           echo "Calling Supabase Edge Function to sync release link..."
           curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -H "Accept: application/json" \
             -d "{\"tag\":\"${TAG}\",\"token\":\"${{ secrets.GH_TOKEN }}\"}" \
