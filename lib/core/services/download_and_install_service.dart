@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:open_filex/open_filex.dart';
+import 'package:flutter/services.dart';
 
 class UpdateInstaller {
-  /// 🔽 تحميل ملف APK وإرجاع المسار النهائي
+  static const MethodChannel _channel = MethodChannel('alrahma/install_apk');
+
   static Future<String> download(
     String url, {
     Function(int received, int total)? onReceiveProgress,
@@ -27,7 +28,7 @@ class UpdateInstaller {
         onReceiveProgress: (received, total) {
           if (onReceiveProgress != null) {
             if (total == 0) {
-              onReceiveProgress(received, -1); // تحميل غير محدد الحجم
+              onReceiveProgress(received, -1);
             } else {
               onReceiveProgress(received, total);
             }
@@ -51,12 +52,16 @@ class UpdateInstaller {
     }
   }
 
-  /// 📦 فتح ملف APK للتثبيت
+  /// Use native intent via MethodChannel to install the apk using FileProvider.
   static Future<void> install(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) {
       throw Exception("APK file not found: $filePath");
     }
-    await OpenFilex.open(filePath);
+    try {
+      await _channel.invokeMethod('installApk', {'path': filePath});
+    } on PlatformException catch (e) {
+      throw Exception('Failed to start installer: ${e.message}');
+    }
   }
 }

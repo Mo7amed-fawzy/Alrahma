@@ -85,7 +85,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"version_text\": \"${TAG_NUMBER}\",
+              \"version\": \"${TAG_NUMBER}\",
               \"apk_url\": \"${{ secrets.SUPABASE_URL }}/functions/v1/download-apk?tag=${TAG}&meta=false\",
               \"force_update\": false
             }" -sS -o /tmp/sync-response.json || true

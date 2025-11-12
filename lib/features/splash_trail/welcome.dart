@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:alrahma/core/services/download_and_install_service.dart';
+import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,7 +20,8 @@ class WelcomeMessage extends StatefulWidget {
   State<WelcomeMessage> createState() => _WelcomeMessageState();
 }
 
-class _WelcomeMessageState extends State<WelcomeMessage> {
+class _WelcomeMessageState extends State<WelcomeMessage>
+    with WidgetsBindingObserver {
   bool _dialogShown = false;
   final TrialServiceSupabase _onlineService = TrialServiceSupabase();
   String _currentVersion = "0.0.0";
@@ -31,9 +33,26 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initExtras();
     _checkTrial();
     _listenForUpdates();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    UpdateService.stopListening();
+    UpdateChecker.stop();
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkIfDownloadedUpdateInstalled();
+    }
   }
 
   Future<void> _initExtras() async {
@@ -53,12 +72,68 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
     );
   }
 
-  @override
-  void dispose() {
-    UpdateService.stopListening();
-    UpdateChecker.stop();
-    _updateTimer?.cancel();
-    super.dispose();
+  Future<void> _checkIfDownloadedUpdateInstalled() async {
+    if (_prefs == null) return;
+
+    final downloadedVersion = _prefs!.getString('downloaded_version');
+    final apkPath = _prefs!.getString('downloaded_apk_path');
+    final downloadState = _prefs!.getString('download_state');
+
+    if (downloadedVersion != null && downloadState == 'downloaded') {
+      try {
+        final packageInfo = await PackageInfo.fromPlatform();
+        if (packageInfo.version == downloadedVersion) {
+          // ✅ التحديث تم تثبيته
+          await _prefs!.remove('downloaded_version');
+          await _prefs!.remove('downloaded_apk_path');
+          await _prefs!.remove('download_state');
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم تثبيت التحديث بنجاح!'),
+              backgroundColor: AppColors.alrahmaSecondColor,
+            ),
+          );
+        } else if (apkPath != null) {
+          // ⚠️ لم يتم التثبيت بعد
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (_) => AlertDialog(
+              title: Text("تثبيت التحديث"),
+              content: Text(
+                "تم تحميل التحديث ($downloadedVersion) بنجاح. اضغط لتثبيته الآن.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    try {
+                      await UpdateInstaller.install(apkPath);
+                    } catch (e) {
+                      SnackbarHelper.show(
+                        context,
+                        message: '❌ فشل التثبيت: $e',
+                        backgroundColor: AppColors.errorRed,
+                      );
+                    }
+                  },
+                  child: Text("تثبيت"),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text("إغلاق"),
+                ),
+              ],
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint("Error checking installed version: $e");
+      }
+    }
   }
 
   Future<void> _checkForUpdateUI() async {
@@ -95,15 +170,55 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
                   },
                 );
 
+                await _prefs?.setString('downloaded_apk_path', filePath);
+                await _prefs?.setString(
+                  'downloaded_version',
+                  updateInfo.latestVersion,
+                );
+                await _prefs?.setString('download_state', 'downloaded');
+
                 await _prefs?.setString(
                   _kLastPromptedVersionKey,
                   updateInfo.latestVersion,
                 );
 
-                await UpdateInstaller.install(filePath);
+                if (!mounted) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (_) => AlertDialog(
+                    title: Text("جاهز للتثبيت"),
+                    content: Text(
+                      "تم تحميل التحديث (${updateInfo.latestVersion}) بنجاح. اضغط لتثبيته.",
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          try {
+                            await UpdateInstaller.install(filePath);
+                          } catch (e) {
+                            SnackbarHelper.show(
+                              context,
+                              message: '❌ فشل التثبيت: $e',
+                              backgroundColor: AppColors.errorRed,
+                            );
+                          }
+                        },
+                        child: Text("تثبيت"),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text("إغلاق"),
+                      ),
+                    ],
+                  ),
+                );
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('❌ فشل تحميل التحديث: $e')),
+                SnackbarHelper.show(
+                  context,
+                  message: '❌ فشل تحميل التحديث: $e',
+                  backgroundColor: AppColors.errorRed,
                 );
               }
             },
@@ -111,6 +226,11 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
         );
       });
     } else {
+      SnackbarHelper.show(
+        context,
+        message: "✅ لا يوجد تحديث. النسخة الحالية $_currentVersion",
+        backgroundColor: AppColors.alrahmaSecondColor,
+      );
       debugPrint("✅ لا يوجد تحديث. النسخة الحالية $_currentVersion");
     }
   }

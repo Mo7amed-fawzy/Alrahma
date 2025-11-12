@@ -1,5 +1,6 @@
 import 'package:alrahma/features/client/repo/clients_repository.dart';
 import 'package:alrahma/features/home/widgets/home_sections.dart';
+import 'package:alrahma/features/home/widgets/show_update_status_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:alrahma/core/funcs/init_and_load_databases.dart';
@@ -17,6 +18,7 @@ import 'package:alrahma/features/client/clients_page.dart';
 import 'package:alrahma/features/payment/cubit/payments_cubit.dart';
 import 'package:alrahma/features/project/cubit/projects_cubit.dart';
 import 'package:alrahma/features/payment/payments_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -77,6 +79,19 @@ class HomeView extends StatelessWidget {
             textDirection: TextDirection.rtl,
             child: Scaffold(
               appBar: AppBar(
+                actions: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.system_update_alt,
+                      color: Colors.white,
+                    ),
+                    tooltip: "عرض حالة التحديث",
+                    onPressed: () {
+                      showUpdateStatusDialog(context);
+                    },
+                  ),
+                ],
+
                 title: Text(
                   'لوحة التحكم',
                   style: CustomTextStyles.cairoBold20.copyWith(
