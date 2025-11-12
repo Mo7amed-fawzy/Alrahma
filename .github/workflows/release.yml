@@ -66,7 +66,6 @@ jobs:
         with:
           files: ${{ env.APK_NAME }}
         env:
-          # this must be a fine-grained PAT or a token with releases:write permission
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Construct release download URL
@@ -86,8 +85,8 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
             -d "{
-              \"version\": \"${TAG_NUMBER}\",
-              \"apk_url\": \"${RELEASE_DOWNLOAD_URL}\",
+              \"version_text\": \"${TAG_NUMBER}\",
+              \"apk_url\": \"${{ secrets.SUPABASE_URL }}/functions/v1/download-apk?tag=${TAG}&meta=false\",
               \"force_update\": false
             }" -sS -o /tmp/sync-response.json || true
           echo "Supabase response:"
@@ -96,4 +95,4 @@ jobs:
       - name: Print final info
         run: |
           echo "✅ Build + Release + Sync finished"
-          echo "Public release URL: $RELEASE_DOWNLOAD_URL"
+          echo "Public release URL: ${RELEASE_DOWNLOAD_URL}"
