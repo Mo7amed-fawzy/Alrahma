@@ -61,3 +61,7 @@ values (5, 'https://ciikqcvwmhtnhisxigvh.supabase.co/storage/v1/object/public/ap
 
 
 -- وكل الأجهزة المتصلة بقناة app_updates هتستقبل التحديث تلقائيًا بدون أي SELECT.
+
+
+alter table public.updates
+alter column version type text using version::text;

@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:alrahma/core/services/download_and_install_service.dart';
 import 'package:alrahma/core/services/trial_service_supabase.dart';
+import 'package:alrahma/core/services/update_checker.dart';
 import 'package:alrahma/core/services/update_service.dart';
 import 'package:alrahma/features/splash_trail/widgets/show_update_dialog.dart';
 import 'package:flutter/material.dart';
@@ -19,20 +21,72 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
   bool _dialogShown = false;
   final TrialServiceSupabase _onlineService = TrialServiceSupabase();
 
+  // النسخة الحالية للتطبيق
+  final String currentVersion = "1.0.0";
+
+  // Timer للفحص الدوري
+  Timer? _updateTimer;
+
   @override
   void initState() {
     super.initState();
     _checkTrial();
-    _listenForUpdates();
+
+    // بعد أول frame نتحقق من وجود تحديث جديد
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdateUI();
+    });
+
+    // ضبط Timer لفحص التحديث كل 6 ساعات (21600 ثانية)
+    _updateTimer = Timer.periodic(
+      const Duration(seconds: 21600),
+      (_) => _checkForUpdateUI(),
+    );
   }
 
   @override
   void dispose() {
     UpdateService.stopListening();
+    UpdateChecker.stop();
+    _updateTimer?.cancel();
     super.dispose();
   }
 
-  // ✅ الاستماع للتحديثات وفصل الـ logic
+  // UI Handler لفحص التحديث وإظهار الـ Dialog
+  Future<void> _checkForUpdateUI() async {
+    final updateInfo = await UpdateChecker.fetchLatestUpdate();
+    if (updateInfo == null) return;
+
+    if (UpdateChecker.isUpdateAvailable(
+      currentVersion,
+      updateInfo.latestVersion,
+    )) {
+      if (!mounted) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          barrierDismissible: !updateInfo.forceUpdate,
+          builder: (_) => UpdateDialog(
+            title: "تحديث جديد متاح",
+            message:
+                "تم إصدار نسخة جديدة (${updateInfo.latestVersion}). هل ترغب في التحديث الآن؟",
+            onConfirm: (progressCallback) async {
+              final path = await UpdateInstaller.download(
+                updateInfo.apkUrl,
+                onReceiveProgress: (count, total) {
+                  progressCallback(total > 0 ? count / total : 0.0);
+                },
+              );
+              await UpdateInstaller.install(path);
+            },
+          ),
+        );
+      });
+    }
+  }
+
+  // الاستماع لتحديثات من Supabase Realtime أو trigger
   void _listenForUpdates() {
     UpdateService.checkUpdates(
       onUpdate: (payload) async {
@@ -48,7 +102,6 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
               title: "تحديث جديد",
               message: "يوجد تحديث جديد للتطبيق. هل تريد التثبيت؟",
               onConfirm: (progressCallback) async {
-                // تحميل الـ APK مع تحديث الـ progress
                 final path = await UpdateInstaller.download(
                   apkUrl,
                   onReceiveProgress: (count, total) {
@@ -64,7 +117,7 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
     );
   }
 
-  // ✅ فحص الترايل
+  // فحص الترايل
   Future<void> _checkTrial() async {
     try {
       final result = await _onlineService.checkOrStartTrial();

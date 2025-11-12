@@ -77,16 +77,20 @@ jobs:
           echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
           echo "Release asset URL: ${RELEASE_DOWNLOAD_URL}"
 
-      - name: Call Supabase Edge Function (sync release link into updates table)
+      - name: Sync release into Supabase updates table
         run: |
-          echo "Calling Supabase Edge Function to sync release link..."
-          curl -X POST "${{ secrets.SUPABASE_FUNCTION_URL }}" \
+          TAG_NUMBER=${TAG#v}  # يحول v1.0.8 -> 1.0.8
+          echo "Syncing version ${TAG_NUMBER} to Supabase..."
+          curl -X POST "${{ secrets.SUPABASE_URL }}/rest/v1/updates" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
             -H "Content-Type: application/json" \
-            -H "Accept: application/json" \
-            -d "{\"tag\":\"${TAG}\",\"token\":\"${{ secrets.GH_TOKEN }}\"}" \
-            -sS -o /tmp/sync-response.json || true
-          echo "Function response:"
+            -d "{
+              \"version\": \"${TAG_NUMBER}\",
+              \"apk_url\": \"${RELEASE_DOWNLOAD_URL}\",
+              \"force_update\": false
+            }" -sS -o /tmp/sync-response.json || true
+          echo "Supabase response:"
           cat /tmp/sync-response.json || true
 
       - name: Print final info
