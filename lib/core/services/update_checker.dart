@@ -1,4 +1,3 @@
-// lib/core/services/update_checker.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
 
@@ -17,7 +16,7 @@ class UpdateInfo {
 class UpdateChecker {
   static bool _isChecking = false;
 
-  /// تجيب آخر صف من جدول updates
+  /// 🔍 تجلب آخر تحديث من جدول updates
   static Future<UpdateInfo?> fetchLatestUpdate() async {
     if (_isChecking) return null;
     _isChecking = true;
@@ -25,7 +24,6 @@ class UpdateChecker {
     try {
       final supabase = Supabase.instance.client;
 
-      // نستخدم .maybeSingle() لأن API قد يرجع null في حالة عدم وجود صف
       final res = await supabase
           .from('updates')
           .select('version, apk_url, force_update')
@@ -35,12 +33,12 @@ class UpdateChecker {
 
       if (res == null) return null;
 
-      // تأكد من تعاملك مع أنواع مختلفة (int أو text)
       final latestVersion = (res['version'] ?? '').toString();
       final apkUrl = (res['apk_url'] ?? '').toString();
       final force = (res['force_update'] ?? false) as bool;
 
-      debugPrint('📦 Latest Version from Supabase: $latestVersion');
+      debugPrint('📦 Latest version: $latestVersion');
+      debugPrint('🔗 APK URL: $apkUrl');
 
       return UpdateInfo(
         latestVersion: latestVersion,
@@ -55,26 +53,21 @@ class UpdateChecker {
     }
   }
 
-  /// قارن بين نسختين بصيغة semantic (1.0.8 vs 1.0.5)
+  /// ⚖️ مقارنة رقم الإصدار الحالي بالمتوفر على السيرفر
   static bool isUpdateAvailable(String current, String latest) {
-    List<int> parseVersion(String v) {
-      return v.split('.').map((e) {
-        return int.tryParse(e) ?? 0;
-      }).toList();
-    }
+    List<int> parse(String v) =>
+        v.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
-    final curr = parseVersion(current);
-    final newV = parseVersion(latest);
+    final c = parse(current);
+    final l = parse(latest);
 
-    for (int i = 0; i < newV.length; i++) {
-      final c = i < curr.length ? curr[i] : 0;
-      if (newV[i] > c) return true;
-      if (newV[i] < c) return false;
+    for (int i = 0; i < l.length; i++) {
+      final curr = i < c.length ? c[i] : 0;
+      if (l[i] > curr) return true;
+      if (l[i] < curr) return false;
     }
     return false;
   }
 
-  static void stop() {
-    _isChecking = false;
-  }
+  static void stop() => _isChecking = false;
 }
