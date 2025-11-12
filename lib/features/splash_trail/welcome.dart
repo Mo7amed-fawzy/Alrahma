@@ -1,10 +1,16 @@
+// lib/features/splash_trail/widgets/welcome_message.dart
 import 'dart:async';
+import 'package:alrahma/core/utils/app_colors.dart';
+import 'package:alrahma/features/splash_trail/widgets/show_update_dialog.dart';
+import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:alrahma/core/services/download_and_install_service.dart';
 import 'package:alrahma/core/services/trial_service_supabase.dart';
 import 'package:alrahma/core/services/update_checker.dart';
 import 'package:alrahma/core/services/update_service.dart';
-import 'package:alrahma/features/splash_trail/widgets/show_update_dialog.dart';
-import 'package:flutter/material.dart';
 import 'package:alrahma/core/utils/app_colors.dart';
 import 'package:alrahma/core/utils/custom_text_styles.dart';
 import 'package:alrahma/core/utils/assets.dart';
@@ -20,26 +26,38 @@ class WelcomeMessage extends StatefulWidget {
 class _WelcomeMessageState extends State<WelcomeMessage> {
   bool _dialogShown = false;
   final TrialServiceSupabase _onlineService = TrialServiceSupabase();
-
-  // النسخة الحالية للتطبيق
-  final String currentVersion = "1.0.0";
-
-  // Timer للفحص الدوري
+  String _currentVersion = "0.0.0";
   Timer? _updateTimer;
+  SharedPreferences? _prefs;
+
+  static const _kLastPromptedVersionKey = 'last_prompted_version';
 
   @override
   void initState() {
     super.initState();
+    _initExtras();
     _checkTrial();
+    _listenForUpdates();
+  }
+
+  Future<void> _initExtras() async {
+    _prefs = await SharedPreferences.getInstance();
+    // اقرأ نسخة التطبيق الفعلية
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _currentVersion = info.version; // مثل "1.0.5"
+    } catch (e) {
+      _currentVersion = "0.0.0";
+    }
 
     // بعد أول frame نتحقق من وجود تحديث جديد
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdateUI();
     });
 
-    // ضبط Timer لفحص التحديث كل 6 ساعات (21600 ثانية)
+    // ضبط Timer لفحص التحديث كل 6 ساعات
     _updateTimer = Timer.periodic(
-      const Duration(seconds: 21600),
+      const Duration(hours: 6),
       (_) => _checkForUpdateUI(),
     );
   }
@@ -57,12 +75,21 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
     final updateInfo = await UpdateChecker.fetchLatestUpdate();
     if (updateInfo == null) return;
 
+    // لو النسخة الحالية أصغر
     if (UpdateChecker.isUpdateAvailable(
-      currentVersion,
+      _currentVersion,
       updateInfo.latestVersion,
     )) {
-      if (!mounted) return;
+      final lastPrompted = _prefs?.getString(_kLastPromptedVersionKey);
+      // لو طلبنا نفس النسخة قبل كده متظهرش تاني
+      if (lastPrompted == updateInfo.latestVersion) {
+        debugPrint(
+          "Update already prompted for version ${updateInfo.latestVersion}",
+        );
+        return;
+      }
 
+      if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
@@ -71,47 +98,55 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
             title: "تحديث جديد متاح",
             message:
                 "تم إصدار نسخة جديدة (${updateInfo.latestVersion}). هل ترغب في التحديث الآن؟",
-            onConfirm: (progressCallback) async {
-              final path = await UpdateInstaller.download(
-                updateInfo.apkUrl,
-                onReceiveProgress: (count, total) {
-                  progressCallback(total > 0 ? count / total : 0.0);
-                },
-              );
-              await UpdateInstaller.install(path);
+            onConfirm: (progressCb) async {
+              // progressCb expects (double, {bool indeterminate})
+              try {
+                await UpdateInstaller.download(
+                  updateInfo.apkUrl,
+                  onReceiveProgress: (received, total) {
+                    if (total <= 0) {
+                      // indeterminate
+                      progressCb(0.0, indeterminate: true);
+                    } else {
+                      final p = (received / total).clamp(0.0, 1.0);
+                      progressCb(p, indeterminate: false);
+                    }
+                  },
+                );
+                // لو التحميل انتهى بنجاح، خزّن إننا عرضنا/نزلنا هذه النسخة
+                await _prefs?.setString(
+                  _kLastPromptedVersionKey,
+                  updateInfo.latestVersion,
+                );
+                // وابدأ التثبيت (يفتح مثبت النظام)
+                final path =
+                    '${(await getApplicationDocumentsDirectory()).path}/update.apk';
+                await UpdateInstaller.install(path);
+              } catch (e) {
+                // رمي خطأ ووِرِّيه للمستخدم عبر SnackBar (dialog ما يُغلق إلا بضغط المستخدم أو بعد نجاح)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('خطأ أثناء تحميل التحديث: $e')),
+                );
+                rethrow;
+              }
             },
           ),
         );
       });
+    } else {
+      debugPrint("No update available. Current: $_currentVersion");
     }
   }
 
-  // الاستماع لتحديثات من Supabase Realtime أو trigger
+  // الاستماع لتحديثات من Supabase Realtime
   void _listenForUpdates() {
     UpdateService.checkUpdates(
       onUpdate: (payload) async {
         if (!mounted) return;
-
+        // payload ممكن يجي Map أو JSON string — سوّيت المعالجة في UpdateService
         if (payload['action'] == 'update_available') {
-          final apkUrl = payload['url'];
-
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => UpdateDialog(
-              title: "تحديث جديد",
-              message: "يوجد تحديث جديد للتطبيق. هل تريد التثبيت؟",
-              onConfirm: (progressCallback) async {
-                final path = await UpdateInstaller.download(
-                  apkUrl,
-                  onReceiveProgress: (count, total) {
-                    progressCallback(total > 0 ? count / total : 0.0);
-                  },
-                );
-                await UpdateInstaller.install(path);
-              },
-            ),
-          );
+          // مباشرة نفحص الجدول بدل الاعتماد على payload فقط
+          await _checkForUpdateUI();
         }
       },
     );
@@ -215,20 +250,13 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
                   style: CustomTextStyles.cairoBold20.copyWith(
                     fontSize: baseSize * 1.2,
                     color: Colors.white,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: baseSize * 0.3,
-                        offset: Offset(baseSize * 0.1, baseSize * 0.1),
-                      ),
-                    ],
                   ),
                 ),
                 SizedBox(height: baseSize * 0.3),
                 Text(
                   'انجز مهامك بسهولة!',
                   style: CustomTextStyles.cairoRegular14.copyWith(
-                    color: Colors.white70,
+                    color: AppColors.alrahmaSecondColor,
                     fontSize: baseSize,
                   ),
                 ),

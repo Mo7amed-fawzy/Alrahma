@@ -28,6 +28,8 @@ dependencies:
   url_launcher: ^6.3.2
   dio: ^5.9.0
   open_filex: ^4.7.0
+  shared_preferences: ^2.5.3
+  package_info_plus: ^9.0.0
 
 
 dev_dependencies:

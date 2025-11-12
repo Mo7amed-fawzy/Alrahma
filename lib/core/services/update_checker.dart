@@ -1,42 +1,61 @@
-import 'package:alrahma/core/utils/print_statement.dart';
+// lib/core/services/update_checker.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
+
+class UpdateInfo {
+  final String latestVersion;
+  final String apkUrl;
+  final bool forceUpdate;
+
+  UpdateInfo({
+    required this.latestVersion,
+    required this.apkUrl,
+    required this.forceUpdate,
+  });
+}
 
 class UpdateChecker {
   static bool _isChecking = false;
 
+  /// تجيب آخر صف من جدول updates
   static Future<UpdateInfo?> fetchLatestUpdate() async {
     if (_isChecking) return null;
     _isChecking = true;
 
     try {
       final supabase = Supabase.instance.client;
-      final response = await supabase
+
+      // نستخدم .maybeSingle() لأن API قد يرجع null في حالة عدم وجود صف
+      final res = await supabase
           .from('updates')
-          .select()
+          .select('version, apk_url, force_update')
           .order('created_at', ascending: false)
           .limit(1)
-          .single();
+          .maybeSingle();
 
-      final latestVersion = response['version']
-          .toString(); // 👈 مهم نخليها String
-      final apkUrl = response['apk_url'] as String;
-      final force = response['force_update'] as bool;
+      if (res == null) return null;
 
-      printHere('📦 Latest Version from Supabase: $latestVersion');
+      // تأكد من تعاملك مع أنواع مختلفة (int أو text)
+      final latestVersion = (res['version'] ?? '').toString();
+      final apkUrl = (res['apk_url'] ?? '').toString();
+      final force = (res['force_update'] ?? false) as bool;
+
+      debugPrint('📦 Latest Version from Supabase: $latestVersion');
+
       return UpdateInfo(
         latestVersion: latestVersion,
         apkUrl: apkUrl,
         forceUpdate: force,
       );
     } catch (e, st) {
-      printHere("❌ Error fetching latest update: $e\n$st");
+      debugPrint("❌ Error fetching latest update: $e\n$st");
       return null;
     } finally {
       _isChecking = false;
     }
   }
 
-  /// ✅ دالة المقارنة الذكية بين الإصدارات
+  /// قارن بين نسختين بصيغة semantic (1.0.8 vs 1.0.5)
   static bool isUpdateAvailable(String current, String latest) {
     List<int> parseVersion(String v) {
       return v.split('.').map((e) {
@@ -58,16 +77,4 @@ class UpdateChecker {
   static void stop() {
     _isChecking = false;
   }
-}
-
-class UpdateInfo {
-  final String latestVersion;
-  final String apkUrl;
-  final bool forceUpdate;
-
-  UpdateInfo({
-    required this.latestVersion,
-    required this.apkUrl,
-    required this.forceUpdate,
-  });
 }
