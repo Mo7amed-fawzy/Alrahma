@@ -26,6 +26,12 @@ class _WelcomeMessageState extends State<WelcomeMessage> {
     _listenForUpdates();
   }
 
+  @override
+  void dispose() {
+    UpdateService.stopListening();
+    super.dispose();
+  }
+
   // ✅ الاستماع للتحديثات وفصل الـ logic
   void _listenForUpdates() {
     UpdateService.checkUpdates(

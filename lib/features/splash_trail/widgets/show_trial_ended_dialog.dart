@@ -13,79 +13,82 @@ void showBlockDialog(
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.all(22),
-        decoration: BoxDecoration(
-          color: AppColors.primaryBlue.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primaryBlue.withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              mainIcon,
-              size: 60,
-              color: iconColor, // ✅ استخدم اللون اللي هييجي
-            ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              messageTitle,
-              style: CustomTextStyles.cairoBold24.copyWith(
-                color: Colors.white,
-                shadows: [
-                  Shadow(color: Colors.black.withOpacity(0.4), blurRadius: 6),
-                ],
+    builder: (context) => PopScope(
+      canPop: false, // يمنع أي محاولة للخروج بالزر الخلفي
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: AppColors.primaryBlue.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryBlue.withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
               ),
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 12),
-
-            Text(
-              message,
-              style: CustomTextStyles.cairoRegular16.copyWith(
-                color: Colors.white70,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                mainIcon,
+                size: 60,
+                color: iconColor, // ✅ استخدم اللون اللي هييجي
               ),
-              textAlign: TextAlign.center,
-            ),
 
-            const SizedBox(height: 22),
+              const SizedBox(height: 16),
 
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 38,
+              Text(
+                messageTitle,
+                style: CustomTextStyles.cairoBold24.copyWith(
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(color: Colors.black.withOpacity(0.4), blurRadius: 6),
+                  ],
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 2,
+                textAlign: TextAlign.center,
               ),
-              onPressed: () {
-                SystemNavigator.pop();
-              },
-              child: Text(
-                "حسناً",
-                style: CustomTextStyles.cairoBold20.copyWith(
-                  color: AppColors.primaryBlue,
+
+              const SizedBox(height: 12),
+
+              Text(
+                message,
+                style: CustomTextStyles.cairoRegular16.copyWith(
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 22),
+
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 38,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 2,
+                ),
+                onPressed: () {
+                  SystemNavigator.pop();
+                },
+                child: Text(
+                  "حسناً",
+                  style: CustomTextStyles.cairoBold20.copyWith(
+                    color: AppColors.primaryBlue,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
