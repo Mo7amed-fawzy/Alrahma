@@ -31,9 +31,30 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        debug {
+            // استخدام default debug keystore
+            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+        release {
+            // هنا نستخدم نفس الـ debug keystore لضمان تحديث النسخة القديمة
+            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig signingConfigs.release
+            // اختياري: لو عايز تخلي build بدون minify
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }

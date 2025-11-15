@@ -126,13 +126,13 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                       } else {
                         SnackbarHelper.show(
                           context,
-                          message: '❌ فشل التثبيت: ${e.message}',
+                          message: '2❌2 فشل التثبيت: ${e.message}',
                         );
                       }
                     } catch (e) {
                       SnackbarHelper.show(
                         context,
-                        message: '❌ فشل التثبيت: $e',
+                        message: '3❌3 فشل التثبيت: $e',
                       );
                     }
                   },
@@ -216,7 +216,7 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                           } catch (e) {
                             SnackbarHelper.show(
                               context,
-                              message: '❌ فشل التثبيت: $e',
+                              message: '1❌1 فشل التثبيت: $e',
                               backgroundColor: AppColors.errorRed,
                             );
                           }

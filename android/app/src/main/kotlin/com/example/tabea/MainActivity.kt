@@ -12,13 +12,14 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity: FlutterActivity() {
+
     private val IMAGE_CHANNEL = "save_image_util"
     private val UPDATE_CHANNEL = "alrahma/install_apk"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Image scanner channel (كما كان)
+        // قناة لفحص الصور والملفات
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, IMAGE_CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (call.method == "scanFile") {
@@ -34,7 +35,7 @@ class MainActivity: FlutterActivity() {
                 }
             }
 
-        // Update installer channel
+        // قناة تثبيت APK
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATE_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -53,13 +54,16 @@ class MainActivity: FlutterActivity() {
                     "installApk" -> {
                         val path = call.argument<String>("path")
                         if (path == null) {
-                            result.error("NO_PATH", "path is null", null)
+                            result.error("NO_PATH", "APK path is null", null)
                             return@setMethodCallHandler
                         }
                         try {
-                            // If Android O+ and not allowed -> throw special error back to Dart
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !canRequestPackageInstalls()) {
-                                result.error("INSTALL_PERMISSION_REQUIRED", "User must enable install-from-unknown-sources for this app", null)
+                                result.error(
+                                    "INSTALL_PERMISSION_REQUIRED",
+                                    "User must enable install-from-unknown-sources for this app",
+                                    null
+                                )
                                 return@setMethodCallHandler
                             }
                             installApk(path)
@@ -73,14 +77,14 @@ class MainActivity: FlutterActivity() {
             }
     }
 
+    // تحقق إذا يمكن تثبيت من مصادر غير معروفة
     private fun canRequestPackageInstalls(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             packageManager.canRequestPackageInstalls()
-        } else {
-            true // older versions don't require permission
-        }
+        } else true
     }
 
+    // فتح صفحة السماح لتثبيت التطبيقات من مصادر غير معروفة
     private fun requestInstallPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
@@ -89,12 +93,13 @@ class MainActivity: FlutterActivity() {
         }
     }
 
+    // تثبيت APK باستخدام FileProvider لجميع الإصدارات الحديثة
     private fun installApk(path: String) {
         val file = File(path)
         if (!file.exists()) throw Exception("APK file not found: $path")
 
         val uri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", file)
+            FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
         } else {
             Uri.fromFile(file)
         }

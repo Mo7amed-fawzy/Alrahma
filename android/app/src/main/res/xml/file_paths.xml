@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-    <files-path name="files" path="." />
+
+    <!-- للوصول للملفات الداخلية للتطبيق -->
+    <files-path name="internal_files" path="." />
+
+    <!-- للوصول للملفات في External Storage للتطبيق -->
     <external-path name="external_files" path="." />
+
 </paths>

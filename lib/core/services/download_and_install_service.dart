@@ -3,16 +3,21 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class UpdateInstaller {
   static const MethodChannel _channel = MethodChannel('alrahma/install_apk');
 
+  /// تحميل APK مع تحقق SHA256 وخطأ واضح
   static Future<String> download(
     String url, {
     Function(int received, int total)? onReceiveProgress,
     String? expectedSha256,
   }) async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getExternalStorageDirectory();
+    if (dir == null)
+      throw Exception("Failed to get external storage directory");
+
     final savePath = "${dir.path}/update.apk";
 
     final dio = Dio(
@@ -29,11 +34,10 @@ class UpdateInstaller {
         savePath,
         onReceiveProgress: (received, total) {
           if (onReceiveProgress != null) {
-            if (total == 0) {
-              onReceiveProgress(received, -1);
-            } else {
-              onReceiveProgress(received, total);
-            }
+            final progress = total <= 0
+                ? -1
+                : (received / total).clamp(0.0, 1.0);
+            onReceiveProgress(received, total);
           }
         },
         options: Options(
@@ -66,24 +70,16 @@ class UpdateInstaller {
     }
   }
 
-  /// طلب التثبيت
-  /// Throws:
-  ///  - PlatformException with code 'INSTALL_PERMISSION_REQUIRED' if user must enable install-permission
-  ///  - PlatformException with code 'INSTALL_ERROR' for other native errors
+  /// تثبيت APK مع retry ودعم صلاحيات
   static Future<void> install(String filePath) async {
     final file = File(filePath);
-    if (!await file.exists()) {
-      throw Exception("APK file not found: $filePath");
-    }
+    if (!await file.exists()) throw Exception("APK file not found: $filePath");
 
     try {
-      // check if we can request installs
       final canInstall =
           await _channel.invokeMethod<bool>('canRequestInstall') ?? true;
       if (!canInstall) {
-        // open settings to allow user to grant permission
         await _channel.invokeMethod('requestInstallPermission');
-        // throw so caller can show a friendly UI to user to try again after enabling
         throw PlatformException(
           code: 'INSTALL_PERMISSION_REQUIRED',
           message: 'User must enable install permission in settings',
@@ -92,8 +88,13 @@ class UpdateInstaller {
 
       await _channel.invokeMethod('installApk', {'path': filePath});
     } on PlatformException catch (e) {
-      // rethrow to let caller handle different cases
-      rethrow;
+      if (e.code == 'INSTALL_PERMISSION_REQUIRED') throw e;
+      // retry مرة واحدة إذا فشل
+      try {
+        await _channel.invokeMethod('installApk', {'path': filePath});
+      } catch (e2) {
+        throw Exception('Failed to start installer: $e2');
+      }
     } catch (e) {
       throw Exception('Failed to start installer: $e');
     }
