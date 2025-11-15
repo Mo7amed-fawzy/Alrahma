@@ -1,12 +1,9 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-
-    // Firebase plugins
     id("com.google.gms.google-services")
-    id("com.google.firebase.crashlytics") // optional
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -32,14 +29,13 @@ android {
     }
 
     signingConfigs {
-        create("debug") {
-            storeFile = File(System.getenv("HOME") + "/.android/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        // استخدم default debug بدون إنشاء واحدة جديدة
+        getByName("debug") {
+            // leave it as default
         }
+
+        // release config: استخدم debug keystore لضمان تحديث النسخة القديمة
         create("release") {
-            // استخدام debug keystore لضمان تحديث النسخة القديمة
             storeFile = File(System.getenv("HOME") + "/.android/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
@@ -52,12 +48,15 @@ android {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             isShrinkResources = false
-
-            // طرق صحيحة في Kotlin DSL
             proguardFiles(
                 getDefaultProguardFile("proguard-android.txt"),
                 file("proguard-rules.pro")
             )
+        }
+
+        // optional: keep debug build unchanged
+        getByName("debug") {
+            // use default signing
         }
     }
 }
