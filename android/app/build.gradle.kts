@@ -4,7 +4,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 
-    // ✅ Firebase plugins
+    // Firebase plugins
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics") // optional
 }
@@ -32,29 +32,32 @@ android {
     }
 
     signingConfigs {
-        debug {
-            // استخدام default debug keystore
-            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
-            storePassword "android"
-            keyAlias "androiddebugkey"
-            keyPassword "android"
+        create("debug") {
+            storeFile = File(System.getenv("HOME") + "/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
-        release {
-            // هنا نستخدم نفس الـ debug keystore لضمان تحديث النسخة القديمة
-            storeFile file(System.getenv("HOME") + "/.android/debug.keystore")
-            storePassword "android"
-            keyAlias "androiddebugkey"
-            keyPassword "android"
+        create("release") {
+            // استخدام debug keystore لضمان تحديث النسخة القديمة
+            storeFile = File(System.getenv("HOME") + "/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
         }
     }
 
     buildTypes {
-        release {
-            signingConfig signingConfigs.release
-            // اختياري: لو عايز تخلي build بدون minify
-            minifyEnabled false
-            shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+
+            // طرق صحيحة في Kotlin DSL
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                file("proguard-rules.pro")
+            )
         }
     }
 }
