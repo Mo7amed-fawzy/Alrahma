@@ -1,16 +1,13 @@
-name: Build & Release APK (tag-based, with Supabase sync)
+name: Build & Release APK (Supabase + GitHub Release)
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'   # يعمل عند push لأي tag يبدأ بـ v
 
 jobs:
   build-release:
     runs-on: ubuntu-latest
-
-    env:
-      APK_BUCKET: apk
 
     steps:
       - name: Checkout repository
@@ -45,51 +42,19 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      - name: Decode Android keystore
-        if: secrets.ANDROID_KEYSTORE_BASE64 != ''
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android.keystore
-
-      - name: Compute keystore cert fingerprints
-        if: secrets.ANDROID_KEYSTORE_BASE64 != ''
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          set -o pipefail || true
-          keytool -list -v -keystore android.keystore -alias "${KEY_ALIAS}" -storepass "${KEYSTORE_PASSWORD}" -keypass "${KEY_PASSWORD}" \
-            | sed -n '1,200p' > keystore-info.txt || true
-          SHA1=$(grep "SHA1:" keystore-info.txt | head -n1 | awk -F'SHA1: ' '{print $2}' | tr -d '\r')
-          SHA256=$(grep "SHA256:" keystore-info.txt | head -n1 | awk -F'SHA256: ' '{print $2}' | tr -d '\r')
-          echo "KEYSTORE_SHA1=$SHA1" >> $GITHUB_ENV
-          echo "KEYSTORE_SHA256=$SHA256" >> $GITHUB_ENV
-
       - name: Build release APK
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           TAG_NUMBER=${TAG#v}
           flutter build apk --release --build-name=${TAG_NUMBER} --build-number=${GITHUB_RUN_NUMBER}
-
-      - name: Sign APK if possible
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          SRC_APK="build/app/outputs/flutter-apk/app-release.apk"
-          APK_NAME="app-${GITHUB_REF#refs/tags/}.apk"
-          if command -v apksigner >/dev/null 2>&1; then
-            apksigner sign --ks android.keystore --ks-pass pass:${KEYSTORE_PASSWORD} --ks-key-alias ${KEY_ALIAS} --key-pass pass:${KEY_PASSWORD} --out ${APK_NAME} ${SRC_APK} || true
-            if [ ! -f "${APK_NAME}" ] && [ -f "${SRC_APK}" ]; then
-              cp "${SRC_APK}" "${APK_NAME}"
-            fi
-          else
-            cp "${SRC_APK}" "${APK_NAME}"
-          fi
+          # اسم الـ APK الأصلي
+          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
+          # إعادة تسمية APK ليشمل التاج
+          APK_NAME="app-${TAG}.apk"
+          mv "${APK_SRC}" "${APK_NAME}"
           echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "✅ APK built and renamed -> ${APK_NAME}"
 
       - name: Compute APK SHA256
         run: |
@@ -97,6 +62,7 @@ jobs:
           sha256sum "${APK}" | awk '{print $1}' > sha256.txt
           SHA256=$(cat sha256.txt)
           echo "APK_SHA256=${SHA256}" >> $GITHUB_ENV
+          echo "✅ APK SHA256: ${SHA256}"
 
       - name: Create GitHub Release and upload APK
         id: create_release
@@ -106,15 +72,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Construct release download URL
+        run: |
+          TAG=${TAG}
+          APK_NAME=${APK_NAME}
+          RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
+          echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
+          echo "✅ Public release URL: ${RELEASE_DOWNLOAD_URL}"
+
       - name: Call Supabase sync-apk function
         env:
           SUPABASE_FUNCTIONS_BASE: ${{ secrets.SUPABASE_URL }}
           GH_PAT: ${{ secrets.GH_TOKEN }}
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          BODY=$(jq -n --arg tag "$TAG" --arg token "$GH_PAT" '{tag:$tag, token:$token}')
+          TAG=${TAG}
+          APK_NAME=${APK_NAME}
+          BODY=$(jq -n --arg tag "$TAG" --arg token "$GH_PAT" --arg apk_url "$RELEASE_DOWNLOAD_URL" '{tag:$tag, token:$token, apk_url:$apk_url}')
           HTTP_CODE=$(curl -sS -o /tmp/sync-resp.json -w "%{http_code}" -X POST "${SUPABASE_FUNCTIONS_BASE}/functions/v1/sync-apk" \
             -H "Content-Type: application/json" \
             --data-raw "${BODY}" || true)
           echo "sync-apk HTTP_CODE=${HTTP_CODE}"
           cat /tmp/sync-resp.json || true
+
+      - name: Final info
+        run: |
+          echo "✅ Build, Release, and Supabase sync completed!"
+          echo "APK: ${{ env.APK_NAME }}"
+          echo "Release URL: ${{ env.RELEASE_DOWNLOAD_URL }}"
