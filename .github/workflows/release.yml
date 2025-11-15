@@ -1,6 +1,7 @@
 name: Build & Release APK (Supabase + GitHub Release)
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'v*'   # يعمل عند push لأي tag يبدأ بـ v
