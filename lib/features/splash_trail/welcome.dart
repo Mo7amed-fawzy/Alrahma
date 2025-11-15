@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:alrahma/core/services/download_and_install_service.dart';
 import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:alrahma/core/services/update_checker.dart';
@@ -112,11 +113,26 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                     Navigator.pop(context);
                     try {
                       await UpdateInstaller.install(apkPath);
+                      // بعد فتح المثبت، التطبيق عادة سيذهب للخلف — سيتم التحقق عند resume
+                    } on PlatformException catch (e) {
+                      if (e.code == 'INSTALL_PERMISSION_REQUIRED') {
+                        // هنا ممكن تعرض dialog يطلب من المستخدم تفعيل السماح من مصدر غير معروف
+                        // ثم يرجع ويحاول التثبيت ثانية
+                        SnackbarHelper.show(
+                          context,
+                          message:
+                              '⚠️ تحتاج للسماح بالتثبيت من مصادر غير معروفة.',
+                        );
+                      } else {
+                        SnackbarHelper.show(
+                          context,
+                          message: '❌ فشل التثبيت: ${e.message}',
+                        );
+                      }
                     } catch (e) {
                       SnackbarHelper.show(
                         context,
                         message: '❌ فشل التثبيت: $e',
-                        backgroundColor: AppColors.errorRed,
                       );
                     }
                   },

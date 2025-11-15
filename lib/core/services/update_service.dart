@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,41 +6,41 @@ class UpdateService {
   static RealtimeChannel? _channel;
   static bool _isListening = false;
 
-  /// start listening to broadcasts on channel 'app_updates'
+  /// Start listening to INSERT events on "updates" table
   static void checkUpdates({void Function(Map<String, dynamic>)? onUpdate}) {
     if (_isListening) return;
     _isListening = true;
 
-    _channel = _supabase.channel('app_updates');
+    // إنشاء قناة
+    _channel = _supabase.channel('public:updates');
 
-    // Try the simple broadcast handler first — if your library requires different API
-    // replace with the channel.on('broadcast', ChannelFilter(...), callback) variant.
-    _channel!.onBroadcast(
-      event: 'update',
-      callback: (payload) {
-        debugPrint("🔥 Update Broadcast Received: $payload");
+    // استماع لتغيرات الـ Postgres
+    _channel!
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'updates',
+          callback: (payload) {
+            try {
+              // payload.newRecord يحتوي على السطر الجديد
+              final newRow = payload.newRecord != null
+                  ? Map<String, dynamic>.from(payload.newRecord!)
+                  : {'raw': payload.toString()};
 
-        // payload from realtime.send / broadcast might be a Map or JSON string.
-        Map<String, dynamic> data;
-        if (payload is String) {
-          try {
-            data = jsonDecode(payload as String) as Map<String, dynamic>;
-          } catch (_) {
-            data = {'raw': payload};
-          }
-        } else {
-          data = payload;
-        }
+              debugPrint('🔥 Realtime update event: $newRow');
+              if (onUpdate != null) onUpdate(newRow);
+            } catch (e, st) {
+              debugPrint('Error handling realtime payload: $e\n$st');
+            }
+          },
+        )
+        .subscribe();
 
-        if (onUpdate != null) onUpdate(data);
-      },
+    debugPrint(
+      "✅ UpdateService is now listening for DB changes on 'updates'...",
     );
-
-    _channel!.subscribe();
-    debugPrint("✅ UpdateService is now listening for updates...");
   }
 
-  /// call when you want to stop listening (e.g., on app dispose)
   static void stopListening() {
     if (!_isListening) return;
     try {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ class UpdateInstaller {
   static Future<String> download(
     String url, {
     Function(int received, int total)? onReceiveProgress,
+    String? expectedSha256,
   }) async {
     final dir = await getApplicationDocumentsDirectory();
     final savePath = "${dir.path}/update.apk";
@@ -44,6 +46,18 @@ class UpdateInstaller {
         throw Exception("Download failed: ${response.statusCode}");
       }
 
+      if (expectedSha256 != null && expectedSha256.isNotEmpty) {
+        final file = File(savePath);
+        final bytes = await file.readAsBytes();
+        final digest = sha256.convert(bytes).toString();
+        if (digest.toLowerCase() != expectedSha256.toLowerCase()) {
+          await file.delete().catchError((_) {});
+          throw Exception(
+            "SHA256 mismatch. expected=$expectedSha256 got=$digest",
+          );
+        }
+      }
+
       return savePath;
     } catch (e) {
       final f = File(savePath);
@@ -52,16 +66,36 @@ class UpdateInstaller {
     }
   }
 
-  /// Use native intent via MethodChannel to install the apk using FileProvider.
+  /// طلب التثبيت
+  /// Throws:
+  ///  - PlatformException with code 'INSTALL_PERMISSION_REQUIRED' if user must enable install-permission
+  ///  - PlatformException with code 'INSTALL_ERROR' for other native errors
   static Future<void> install(String filePath) async {
     final file = File(filePath);
     if (!await file.exists()) {
       throw Exception("APK file not found: $filePath");
     }
+
     try {
+      // check if we can request installs
+      final canInstall =
+          await _channel.invokeMethod<bool>('canRequestInstall') ?? true;
+      if (!canInstall) {
+        // open settings to allow user to grant permission
+        await _channel.invokeMethod('requestInstallPermission');
+        // throw so caller can show a friendly UI to user to try again after enabling
+        throw PlatformException(
+          code: 'INSTALL_PERMISSION_REQUIRED',
+          message: 'User must enable install permission in settings',
+        );
+      }
+
       await _channel.invokeMethod('installApk', {'path': filePath});
     } on PlatformException catch (e) {
-      throw Exception('Failed to start installer: ${e.message}');
+      // rethrow to let caller handle different cases
+      rethrow;
+    } catch (e) {
+      throw Exception('Failed to start installer: $e');
     }
   }
 }
