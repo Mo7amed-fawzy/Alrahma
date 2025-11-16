@@ -43,19 +43,46 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      # ---- Restore release keystore from secret ----
+      - name: Restore release keystore from secret
+        if: ${{ secrets.RELEASE_KEYSTORE_BASE64 != '' }}
+        run: |
+          mkdir -p ~/.android
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ~/.android/alrahma-release.jks
+          chmod 600 ~/.android/alrahma-release.jks
+          ls -l ~/.android | sed -n '1,200p'
+        shell: bash
+
+      # Optional: create debug keystore on runner if you prefer (keeps parity with local debug keystore)
+      - name: Create debug keystore (optional)
+        if: ${{ secrets.USE_DEBUG_KEYSTORE == 'true' }}
+        run: |
+          mkdir -p ~/.android
+          keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android \
+            -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -validity 10000
+          echo "✅ Debug keystore created"
+        shell: bash
+
       - name: Build release APK
+        env:
+          # optional envs your build can read — but keystore file already restored to $HOME/.android
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           TAG_NUMBER=${TAG#v}
+          flutter pub get
           flutter build apk --release --build-name=${TAG_NUMBER} --build-number=${GITHUB_RUN_NUMBER}
-          # اسم الـ APK الأصلي
           APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
-          # إعادة تسمية APK ليشمل التاج
+          if [ ! -f "${APK_SRC}" ]; then
+            echo "ERROR: APK not found at ${APK_SRC}"
+            exit 2
+          fi
           APK_NAME="app-${TAG}.apk"
           mv "${APK_SRC}" "${APK_NAME}"
           echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "✅ APK built and renamed -> ${APK_NAME}"
+        shell: bash
 
       - name: Compute APK SHA256
         run: |
@@ -64,6 +91,7 @@ jobs:
           SHA256=$(cat sha256.txt)
           echo "APK_SHA256=${SHA256}" >> $GITHUB_ENV
           echo "✅ APK SHA256: ${SHA256}"
+        shell: bash
 
       - name: Create GitHub Release and upload APK
         id: create_release
@@ -80,6 +108,7 @@ jobs:
           RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
           echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
           echo "✅ Public release URL: ${RELEASE_DOWNLOAD_URL}"
+        shell: bash
 
       - name: Call Supabase sync-apk function
         env:
@@ -94,9 +123,11 @@ jobs:
             --data-raw "${BODY}" || true)
           echo "sync-apk HTTP_CODE=${HTTP_CODE}"
           cat /tmp/sync-resp.json || true
+        shell: bash
 
       - name: Final info
         run: |
           echo "✅ Build, Release, and Supabase sync completed!"
           echo "APK: ${{ env.APK_NAME }}"
           echo "Release URL: ${{ env.RELEASE_DOWNLOAD_URL }}"
+        shell: bash

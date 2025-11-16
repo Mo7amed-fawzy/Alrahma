@@ -29,14 +29,10 @@ android {
     }
 
     signingConfigs {
-        // استخدم default debug بدون إنشاء واحدة جديدة
-        getByName("debug") {
-            // leave it as default
-        }
-
-        // release config: استخدم debug keystore لضمان تحديث النسخة القديمة
         create("release") {
-            storeFile = File(System.getenv("HOME") + "/.android/debug.keystore")
+            // cross-platform path for debug keystore
+            val home = System.getenv("HOME") ?: System.getProperty("user.home")
+            storeFile = file("$home/.android/alrahma-release.jks")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
@@ -54,9 +50,8 @@ android {
             )
         }
 
-        // optional: keep debug build unchanged
         getByName("debug") {
-            // use default signing
+            // default signing
         }
     }
 }
