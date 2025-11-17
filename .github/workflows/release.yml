@@ -2,6 +2,10 @@ name: Build & Release APK (Supabase + GitHub Release)
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.4)'
+        required: true
   push:
     tags:
       - 'v*'
@@ -71,14 +75,17 @@ jobs:
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
+          # Use the workflow_dispatch input version if available
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-            TAG_NUMBER=${TAG#v}
+            TAG_NUMBER="${{ github.event.inputs.version }}"
             APK_NAME="app-${TAG}.apk"
+            echo "🔖 Building tagged release: ${TAG} with version ${TAG_NUMBER}"
           else
             TAG="main-${GITHUB_RUN_NUMBER}"
-            TAG_NUMBER="1.0.${GITHUB_RUN_NUMBER}"
+            TAG_NUMBER="${{ github.event.inputs.version }}"
             APK_NAME="app-${TAG}.apk"
+            echo "🛠 Building main branch build: ${TAG} with version ${TAG_NUMBER}"
           fi
 
           flutter pub get
