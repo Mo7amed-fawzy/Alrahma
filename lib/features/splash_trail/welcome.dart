@@ -3,6 +3,7 @@ import 'package:alrahma/core/services/download_and_install_service.dart';
 import 'package:alrahma/features/paint/logic/snackbar_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:alrahma/core/services/update_checker.dart';
@@ -103,44 +104,73 @@ class _WelcomeMessageState extends State<WelcomeMessage>
             context: context,
             barrierDismissible: true,
             builder: (_) => AlertDialog(
-              title: Text("تثبيت التحديث"),
+              backgroundColor: AppColors.scaffoldBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.r),
+              ),
+              title: Text(
+                "تثبيت التحديث",
+                style: CustomTextStyles.cairoBold24.copyWith(
+                  color: AppColors.alrahmaprimaryColor,
+                ),
+              ),
               content: Text(
                 "تم تحميل التحديث ($downloadedVersion) بنجاح. اضغط لتثبيته الآن.",
+                style: CustomTextStyles.cairoRegular16,
+              ),
+              actionsPadding: EdgeInsets.symmetric(
+                horizontal: 16.w,
+                vertical: 8.h,
               ),
               actions: [
-                TextButton(
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 12.h,
+                    ),
+                  ),
                   onPressed: () async {
                     Navigator.pop(context);
                     try {
                       await UpdateInstaller.install(apkPath);
-                      // بعد فتح المثبت، التطبيق عادة سيذهب للخلف — سيتم التحقق عند resume
                     } on PlatformException catch (e) {
                       if (e.code == 'INSTALL_PERMISSION_REQUIRED') {
-                        // هنا ممكن تعرض dialog يطلب من المستخدم تفعيل السماح من مصدر غير معروف
-                        // ثم يرجع ويحاول التثبيت ثانية
                         SnackbarHelper.show(
                           context,
+                          backgroundColor: AppColors.warningYellow,
                           message:
                               '⚠️ تحتاج للسماح بالتثبيت من مصادر غير معروفة.',
                         );
                       } else {
                         SnackbarHelper.show(
                           context,
-                          message: '2❌2 فشل التثبيت: ${e.message}',
+                          message: '❌ فشل التثبيت: ${e.message}',
                         );
                       }
                     } catch (e) {
                       SnackbarHelper.show(
                         context,
-                        message: '3❌3 فشل التثبيت: $e',
+                        message: '❌ فشل التثبيت: $e',
                       );
                     }
                   },
-                  child: Text("تثبيت"),
+                  child: Text("تثبيت", style: CustomTextStyles.buttonText),
                 ),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.alrahmaprimaryColor,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.w,
+                      vertical: 12.h,
+                    ),
+                  ),
                   onPressed: () => Navigator.pop(context),
-                  child: Text("إغلاق"),
+                  child: Text("إغلاق", style: CustomTextStyles.cairoSemiBold16),
                 ),
               ],
             ),
@@ -361,7 +391,7 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                   'أنجز مهامك بسهولة!',
                   style: CustomTextStyles.cairoRegular14.copyWith(
                     // color: Colors.white54,
-                    color: AppColors.alrahmaSecondColor,
+                    color: Colors.white70,
                     fontSize: baseSize,
                   ),
                 ),
