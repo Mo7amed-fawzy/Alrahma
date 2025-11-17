@@ -82,7 +82,7 @@ jobs:
             APK_NAME="app-${TAG}.apk"
             echo "🔖 Building tagged release: ${TAG} with version ${TAG_NUMBER}"
           else
-            TAG="main-${GITHUB_RUN_NUMBER}"
+            TAG="staging-${GITHUB_RUN_NUMBER}"
             TAG_NUMBER="${{ github.event.inputs.version }}"
             APK_NAME="app-${TAG}.apk"
             echo "🛠 Building main branch build: ${TAG} with version ${TAG_NUMBER}"
