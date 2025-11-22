@@ -27,6 +27,7 @@ class _WelcomeMessageState extends State<WelcomeMessage>
   bool _dialogShown = false;
   final TrialServiceSupabase _onlineService = TrialServiceSupabase();
   String _currentVersion = "0.0.0";
+
   Timer? _updateTimer;
   SharedPreferences? _prefs;
 
@@ -61,8 +62,17 @@ class _WelcomeMessageState extends State<WelcomeMessage>
     _prefs = await SharedPreferences.getInstance();
     try {
       final info = await PackageInfo.fromPlatform();
-      _currentVersion = info.version;
-    } catch (_) {}
+
+      if (info.version.trim().isEmpty) {
+        _currentVersion = "0.0.0"; // fallback
+      } else {
+        _currentVersion = info.version.trim();
+      }
+    } catch (_) {
+      _currentVersion = "0.0.0"; // fallback
+    }
+
+    debugPrint("📦 Current version (final): $_currentVersion");
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkForUpdateUI();
@@ -84,6 +94,7 @@ class _WelcomeMessageState extends State<WelcomeMessage>
     if (downloadedVersion != null && downloadState == 'downloaded') {
       try {
         final packageInfo = await PackageInfo.fromPlatform();
+
         if (packageInfo.version == downloadedVersion) {
           // ✅ التحديث تم تثبيته
           await _prefs!.remove('downloaded_version');
@@ -190,6 +201,8 @@ class _WelcomeMessageState extends State<WelcomeMessage>
       _currentVersion,
       updateInfo.latestVersion,
     )) {
+      debugPrint("📦 Current version (raw): $_currentVersion");
+
       final lastPrompted = _prefs?.getString(_kLastPromptedVersionKey);
       if (lastPrompted == updateInfo.latestVersion) return;
 
