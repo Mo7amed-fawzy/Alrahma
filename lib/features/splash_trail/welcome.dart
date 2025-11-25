@@ -405,8 +405,8 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                 Text(
                   'أنجز مهامك بسهولة!',
                   style: CustomTextStyles.cairoRegular14.copyWith(
-                    // color: Colors.white54,
-                    color: AppColors.alrahmaSecondColor,
+                    color: Colors.white54,
+                    // color: AppColors.alrahmaSecondColor,
                     fontSize: baseSize,
                   ),
                 ),

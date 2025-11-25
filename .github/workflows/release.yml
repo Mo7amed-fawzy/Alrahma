@@ -113,7 +113,11 @@ jobs:
 
       - name: Call Supabase sync-apk function
         run: |
-          BODY=$(jq -n --arg tag "$CLEAN_TAG" --arg token "$GH_PAT" '{tag:$tag, token:$token}')
+          BODY=$(jq -n \
+            --arg tag "$CLEAN_TAG" \
+            --arg token "$GH_PAT" \
+            --arg apk_url "$RELEASE_DOWNLOAD_URL" \
+            '{tag:$tag, token:$token, apk_url:$apk_url}')
           
           curl -sS -X POST \
             "${SUPABASE_URL}/functions/v1/sync-apk" \
