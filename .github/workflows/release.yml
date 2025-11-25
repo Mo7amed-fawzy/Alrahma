@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g., 1.0.4)'
-        required: true
+        description: 'Version number (optional, will be overridden by tag if present)'
+        required: false
   push:
     tags:
       - 'v*'
@@ -71,35 +71,35 @@ jobs:
             -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -validity 10000
           echo "✅ Debug keystore created"
 
+      - name: Determine version from Git tag
+        id: versioning
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION_NAME="${TAG#v}"  # remove leading 'v' if present
+            echo "🔖 Git tag detected: ${TAG}, using version: ${VERSION_NAME}"
+          else
+            TAG="staging-${GITHUB_RUN_NUMBER}"
+            VERSION_NAME="${{ github.event.inputs.version || '0.0.0' }}"
+            echo "🛠 Main branch build: ${TAG}, version: ${VERSION_NAME}"
+          fi
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          APK_NAME="app-${TAG}.apk"
+          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
+
       - name: Build release APK
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
-          # Use the workflow_dispatch input version if available
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-            TAG_NUMBER="${{ github.event.inputs.version }}"
-            APK_NAME="app-${TAG}.apk"
-            echo "🔖 Building tagged release: ${TAG} with version ${TAG_NUMBER}"
-          else
-            TAG="staging-${GITHUB_RUN_NUMBER}"
-            TAG_NUMBER="${{ github.event.inputs.version }}"
-            APK_NAME="app-${TAG}.apk"
-            echo "🛠 Building main branch build: ${TAG} with version ${TAG_NUMBER}"
-          fi
-
           flutter pub get
-          flutter build apk --release --build-name=${TAG_NUMBER} --build-number=${GITHUB_RUN_NUMBER}
-
+          flutter build apk --release --build-name=${VERSION_NAME} --build-number=${GITHUB_RUN_NUMBER}
           APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
           if [ ! -f "${APK_SRC}" ]; then
             echo "ERROR: APK not found at ${APK_SRC}"
             exit 2
           fi
-
           mv "${APK_SRC}" "${APK_NAME}"
-          echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
-          echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "✅ APK built and renamed -> ${APK_NAME}"
 
       - name: Compute APK SHA256
