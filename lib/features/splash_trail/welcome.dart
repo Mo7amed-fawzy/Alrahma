@@ -285,12 +285,14 @@ class _WelcomeMessageState extends State<WelcomeMessage>
         );
       });
     } else {
-      SnackbarHelper.show(
-        context,
-        message: "✅ لا يوجد تحديث. النسخة الحالية $_currentVersion",
-        backgroundColor: AppColors.alrahmaSecondColor,
-      );
-      debugPrint("✅ لا يوجد تحديث. النسخة الحالية $_currentVersion");
+      // تحقق أن النسخة فعلاً متساوية 100%
+      if (_currentVersion == updateInfo.latestVersion) {
+        SnackbarHelper.show(
+          context,
+          message: "✅ لا يوجد تحديث. النسخة الحالية $_currentVersion",
+          backgroundColor: AppColors.alrahmaSecondColor,
+        );
+      }
     }
   }
 
@@ -404,7 +406,7 @@ class _WelcomeMessageState extends State<WelcomeMessage>
                   'أنجز مهامك بسهولة!',
                   style: CustomTextStyles.cairoRegular14.copyWith(
                     // color: Colors.white54,
-                    color: Colors.white60,
+                    color: AppColors.alrahmaSecondColor,
                     fontSize: baseSize,
                   ),
                 ),
