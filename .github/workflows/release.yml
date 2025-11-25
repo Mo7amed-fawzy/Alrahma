@@ -1,20 +1,21 @@
 name: Build & Release APK (Supabase + GitHub Release)
 
 on:
+  push:
+    branches:
+      - main       # ⬅️ كل Push على main يعمل Release
+    tags:
+      - 'v*'       # ⬅️ ولو Push tag يعمل Release رسمي
   workflow_dispatch:
     inputs:
       version:
         description: 'Version number (only used without tag)'
         required: false
-  push:
-    tags:
-      - 'v*'
-    branches:
-      - main
 
 jobs:
   build-release:
     runs-on: ubuntu-latest
+
     env:
       RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
       USE_DEBUG_KEYSTORE: ${{ secrets.USE_DEBUG_KEYSTORE }}
@@ -29,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Java (JDK)
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -47,23 +48,22 @@ jobs:
           path: ~/.pub-cache
           key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
 
-      - name: Create .env file for Flutter build
+      - name: Create .env
         run: |
           echo "SUPABASE_URL=${{ env.SUPABASE_URL }}" > .env
           echo "SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}" >> .env
-          echo "✅ .env file created for Flutter build"
 
-      - name: Install Flutter dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Restore release keystore from secret
+      - name: Restore release keystore
         if: env.RELEASE_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p ~/.android
           echo "${{ env.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > ~/.android/alrahma-release.jks
           chmod 600 ~/.android/alrahma-release.jks
 
-      - name: Create debug keystore (optional)
+      - name: Create debug keystore
         if: env.USE_DEBUG_KEYSTORE == 'true'
         run: |
           mkdir -p ~/.android
@@ -71,80 +71,61 @@ jobs:
             -alias androiddebugkey -keypass android \
             -dname "CN=Android Debug,O=Android,C=US" \
             -keyalg RSA -validity 10000
-          echo "✅ Debug keystore created"
 
-      - name: Build release APK
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
+      - name: Build APK
         run: |
-          # Detect version from TAG or manual input
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"       # v1.3.0
-            CLEAN_TAG="${TAG#v}"                # 1.3.0
+            TAG="${GITHUB_REF#refs/tags/}"
+            CLEAN_TAG="${TAG#v}"
             APK_NAME="app-${TAG}.apk"
-            echo "🔖 Building tagged release: ${CLEAN_TAG}"
+            echo "🔖 Building TAG release: $TAG"
           else
-            CLEAN_TAG="${{ github.event.inputs.version }}"
-            TAG="staging-${GITHUB_RUN_NUMBER}"
+            CLEAN_TAG="${{ github.event.inputs.version || '1.0.0' }}"
+            TAG="auto-${GITHUB_RUN_NUMBER}"
             APK_NAME="app-${TAG}.apk"
-            echo "🛠 Building staging build: ${CLEAN_TAG}"
+            echo "🔧 Auto build: $TAG"
           fi
 
-          flutter pub get
           flutter build apk --release --build-name=${CLEAN_TAG} --build-number=${GITHUB_RUN_NUMBER}
 
-          APK_SRC="build/app/outputs/flutter-apk/app-release.apk"
-          if [ ! -f "${APK_SRC}" ]; then
-            echo "ERROR: APK not found at ${APK_SRC}"
-            exit 2
-          fi
-
-          mv "${APK_SRC}" "${APK_NAME}"
+          mv build/app/outputs/flutter-apk/app-release.apk "${APK_NAME}"
           echo "APK_NAME=${APK_NAME}" >> $GITHUB_ENV
           echo "TAG=${TAG}" >> $GITHUB_ENV
           echo "CLEAN_TAG=${CLEAN_TAG}" >> $GITHUB_ENV
-          echo "✅ APK built and renamed -> ${APK_NAME}"
 
-      - name: Compute APK SHA256
+      - name: Compute SHA256
         run: |
           sha256sum "${APK_NAME}" | awk '{print $1}' > sha256.txt
-          SHA256=$(cat sha256.txt)
-          echo "APK_SHA256=${SHA256}" >> $GITHUB_ENV
-          echo "✅ APK SHA256: ${SHA256}"
+          echo "APK_SHA256=$(cat sha256.txt)" >> $GITHUB_ENV
 
-      - name: Create GitHub Release and upload APK
-        id: create_release
+      - name: Create GitHub Release + Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.APK_NAME }}
           tag_name: ${{ env.TAG }}
+          files: ${{ env.APK_NAME }}
         env:
           GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
-      - name: Construct release download URL
+      - name: Build public download URL
         run: |
-          RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
-          echo "RELEASE_DOWNLOAD_URL=${RELEASE_DOWNLOAD_URL}" >> $GITHUB_ENV
-          echo "✅ Public release URL: ${RELEASE_DOWNLOAD_URL}"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_NAME}"
+          echo "RELEASE_DOWNLOAD_URL=${RELEASE_URL}" >> $GITHUB_ENV
 
       - name: Call Supabase sync-apk function
-        if: startsWith(env.TAG, 'v')
         run: |
-          BODY=$(jq -n --arg tag "$CLEAN_TAG" --arg token "$GH_PAT" \
-            --arg apk_url "$RELEASE_DOWNLOAD_URL" \
-            '{tag:$tag, token:$token, apk_url:$apk_url}')
+          BODY=$(jq -n --arg tag "$CLEAN_TAG" --arg token "$GH_PAT" '{tag:$tag, token:$token}')
           
-          HTTP_CODE=$(curl -sS -o /tmp/sync-resp.json -w "%{http_code}" \
-            -X POST "${SUPABASE_URL}/functions/v1/sync-apk" \
+          curl -sS -X POST \
+            "${SUPABASE_URL}/functions/v1/sync-apk" \
             -H "Content-Type: application/json" \
-            --data-raw "${BODY}" || true)
+            -d "$BODY" \
+            -o /tmp/sync-resp.json
 
-          echo "sync-apk HTTP_CODE=${HTTP_CODE}"
-          cat /tmp/sync-resp.json || true
+          cat /tmp/sync-resp.json
 
-      - name: Final info
+      - name: Done
         run: |
-          echo "🎉 Build, Release, and Supabase sync completed!"
-          echo "APK: ${APK_NAME}"
+          echo "🎉 Done!"
           echo "Version: ${CLEAN_TAG}"
-          echo "Release URL: ${RELEASE_DOWNLOAD_URL}"
+          echo "APK: ${APK_NAME}"
+          echo "Release: ${RELEASE_DOWNLOAD_URL}"
