@@ -21,10 +21,14 @@ pluginManagement {
 }
 
 plugins {
-    id("com.android.application") version "8.6.0" apply false 
+    // *** تم التحديث من 8.6.0 إلى 8.9.1 ليتوافق مع الـ Dependencies ***
+    id("com.android.application") version "8.9.1" apply false 
+    
+    // إصدار Kotlin DSL
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    
+    // Flutter Plugin Loader
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
 }
-
 
 include(":app")

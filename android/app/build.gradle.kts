@@ -9,7 +9,7 @@ plugins {
 android {
     namespace = "com.example.alrahma"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -32,7 +32,7 @@ android {
         create("release") {
             // cross-platform path for debug keystore
             val home = System.getenv("HOME") ?: System.getProperty("user.home")
-            storeFile = file("$home/.android/alrahma-release.jks")
+            storeFile = file("$home/.android/alrahma-release.jks")  
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
