@@ -3,9 +3,9 @@ name: Build & Release APK (Supabase + GitHub Release)
 on:
   push:
     branches:
-      - main       # ⬅️ كل Push على main يعمل Release
+      - main      
     tags:
-      - 'v*'       # ⬅️ ولو Push tag يعمل Release رسمي
+      - 'v*'      
   workflow_dispatch:
     inputs:
       version:
@@ -78,12 +78,12 @@ jobs:
             TAG="${GITHUB_REF#refs/tags/}"
             CLEAN_TAG="${TAG#v}"
             APK_NAME="app-${TAG}.apk"
-            echo "🔖 Building TAG release: $TAG"
+            echo "Building TAG release: $TAG"
           else
             CLEAN_TAG="${{ github.event.inputs.version || '1.0.0' }}"
             TAG="auto-${GITHUB_RUN_NUMBER}"
             APK_NAME="app-${TAG}.apk"
-            echo "🔧 Auto build: $TAG"
+            echo "Auto build: $TAG"
           fi
 
           flutter build apk --release --build-name=${CLEAN_TAG} --build-number=${GITHUB_RUN_NUMBER}
@@ -129,7 +129,7 @@ jobs:
 
       - name: Done
         run: |
-          echo "🎉 Done!"
+          echo "Done!"
           echo "Version: ${CLEAN_TAG}"
           echo "APK: ${APK_NAME}"
           echo "Release: ${RELEASE_DOWNLOAD_URL}"
