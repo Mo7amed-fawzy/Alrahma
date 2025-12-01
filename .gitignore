@@ -12,7 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 .env
-
+migration_one.sql
 # IntelliJ related
 *.iml
 *.ipr
@@ -50,7 +50,7 @@ macos
 test 
 web 
 windows
-
+android
 
 # Symbolication related
 app.*.symbols
